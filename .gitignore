@@ -1,0 +1,65 @@
+# ============================================================
+# KLINIKOS — .gitignore
+# ============================================================
+
+# ── macOS ──────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# ── IDE / Editor ───────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.suo
+*.user
+
+# ── Environment / Secrets ──────────────────────────────────
+**/.env
+**/.env.local
+**/.env.*.local
+# Allow example files
+!**/.env.example
+
+# ── Go Backend ─────────────────────────────────────────────
+backend/main
+backend/klinikos
+backend/*.exe
+backend/tmp/
+backend/dist/
+backend/__debug_bin*
+# Go build cache (not needed in repo)
+vendor/
+
+# ── Node / Next.js Frontend ────────────────────────────────
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.cache/
+frontend/build/
+frontend/.turbo/
+frontend/*.tsbuildinfo
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnpm-debug.log*
+
+# ── Docker ─────────────────────────────────────────────────
+# Compose override files (local dev)
+docker-compose.override.yml
+
+# ── Logs ───────────────────────────────────────────────────
+*.log
+logs/
+frontend_logs.txt
+
+# ── Misc ───────────────────────────────────────────────────
+*.tar.gz
+*.zip
+*.bak
+.cache/

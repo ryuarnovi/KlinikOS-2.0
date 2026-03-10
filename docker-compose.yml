@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: klinikos_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root210605
+      POSTGRES_DB: klinikos
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: klinikos_backend
+    restart: always
+    env_file:
+      - ./backend/.env
+    environment:
+      - DB_DSN=postgres://postgres:root210605@db:5432/klinikos?sslmode=disable
+    ports:
+      - "9090:9090"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: klinikos_frontend
+    restart: always
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:9090/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:

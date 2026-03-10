@@ -1,0 +1,23 @@
+# ============================================================
+# KLINIKOS BACKEND — .dockerignore
+# Digunakan oleh Docker saat build context untuk folder backend/
+# ============================================================
+
+.DS_Store
+.env
+.env.local
+
+# Build artifacts
+main
+klinikos
+*.exe
+dist/
+tmp/
+
+# Go module cache (Docker menginstall dari go.mod)
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp

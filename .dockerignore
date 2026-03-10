@@ -1,0 +1,44 @@
+# ============================================================
+# KLINIKOS ROOT — .dockerignore
+# ============================================================
+
+# Git
+.git/
+.gitignore
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# IDE / Editor
+.vscode/
+.idea/
+**/*.swp
+
+# Logs
+*.log
+logs/
+frontend_logs.txt
+
+# Docker compose example
+docker-compose.yml.example
+
+# Local scripts (not needed inside container)
+migrate-local.sh
+
+# Backend — not needed inside build context
+backend/.env
+backend/main
+backend/klinikos
+backend/*.exe
+backend/tmp/
+backend/dist/
+backend/vendor/
+
+# Frontend — heavy dirs not needed (Docker installs its own)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.cache/
+frontend/build/
+frontend/*.tsbuildinfo
