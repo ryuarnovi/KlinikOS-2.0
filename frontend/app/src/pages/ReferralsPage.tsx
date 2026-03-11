@@ -109,7 +109,7 @@ export function ReferralsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Rujukan Pasien</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{user?.role?.toLowerCase() === 'resepsionis' ? 'Rujukan Periksa' : 'Rujukan Pasien'}</h1>
           <p className="text-sm text-slate-500 mt-1">{referrals?.length || 0} rujukan terdaftar</p>
         </div>
         <div className="flex gap-2">

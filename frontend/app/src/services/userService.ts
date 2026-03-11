@@ -45,6 +45,11 @@ export const userService = {
     const res = await api.get('/users');
     return res.data.data;
   },
+  
+  getStaff: async (): Promise<UserResponse[]> => {
+    const res = await api.get('/users/staff');
+    return res.data.data;
+  },
 
   getById: async (id: number): Promise<UserResponse> => {
     const res = await api.get(`/users/${id}`);

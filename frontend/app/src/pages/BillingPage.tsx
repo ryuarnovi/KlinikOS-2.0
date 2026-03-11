@@ -4,6 +4,7 @@ import { patientService } from '@/services/patientService';
 import { medicalRecordService } from '@/services/medicalRecordService';
 import { prescriptionService } from '@/services/prescriptionService';
 import { useApi } from '@/hooks/useApi';
+import { useAuth } from '@/context/AuthContext';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useState, useEffect } from 'react';
 import Script from 'next/script';
@@ -15,6 +16,7 @@ declare global {
 }
 
 export function BillingPage() {
+  const { user } = useAuth();
   const { data: bills, loading, error, refetch } = useApi(() => billingService.getAll(), []);
   const { data: patients } = useApi(() => patientService.getAll(), []);
   const { data: records } = useApi(() => medicalRecordService.getAll(), []);
@@ -270,7 +272,7 @@ export function BillingPage() {
       
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Billing & Transaksi</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{user?.role?.toLowerCase() === 'kasir' ? 'Antrian Pembayaran' : 'Billing & Transaksi'}</h1>
           <p className="text-sm text-slate-500 mt-1">{bills?.length || 0} invoice terdaftar</p>
         </div>
         <div className="flex gap-2">

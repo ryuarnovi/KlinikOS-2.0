@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	mpatient "github.com/ryuarno/klinikos/internal/model/patient"
+	"github.com/ryuarno/klinikos/internal/utils"
 )
 
 type PatientHandler struct {
@@ -158,10 +159,27 @@ func (h *PatientHandler) GetPatientHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": mpatient.ToPatientResponse(p)})
 }
 
-// List all patients
+// List all patients (dengan filtering per role)
 func (h *PatientHandler) ListPatientsHandler(c *gin.Context) {
-	rows, err := h.DB.Query(
-		`SELECT id, patient_code, nik, full_name, date_of_birth, gender, address, phone, email, blood_type, allergies, emergency_contact, emergency_phone, is_walkin, status, created_at, updated_at FROM patients`)
+	userID := utils.GetUserIDFromContext(c)
+	role := strings.ToLower(utils.GetUserRoleFromContext(c))
+
+	query := `SELECT DISTINCT p.id, p.patient_code, p.nik, p.full_name, p.date_of_birth, p.gender, p.address, p.phone, p.email, p.blood_type, p.allergies, p.emergency_contact, p.emergency_phone, p.is_walkin, p.status, p.created_at, p.updated_at 
+	          FROM patients p`
+	
+	args := []interface{}{}
+	if role == "dokter" {
+		query += ` LEFT JOIN queues q ON p.id = q.patient_id 
+		           LEFT JOIN medical_records mr ON p.id = mr.patient_id
+		           WHERE q.doctor_id = $1 OR mr.doctor_id = $1`
+		args = append(args, userID)
+	} else if role == "perawat" {
+		query += ` JOIN queues q ON p.id = q.patient_id 
+		           WHERE q.nurse_id = $1`
+		args = append(args, userID)
+	}
+
+	rows, err := h.DB.Query(query, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get patients: " + err.Error()})
 		return

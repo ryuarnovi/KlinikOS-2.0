@@ -42,24 +42,24 @@ const navSections: NavSection[] = [
     items: [
       { id: 'users', label: 'Users & Roles', icon: <i className="fi fi-rr-users-alt text-lg" />, roles: ['admin'] },
       { id: 'patients', label: 'Pasien', icon: <i className="fi fi-rr-user text-lg" />, roles: ['admin', 'dokter', 'perawat', 'kasir', 'resepsionis'] },
-      { id: 'staff', label: 'Staff Profiles', icon: <i className="fi fi-rr-shield-check text-lg" />, roles: ['admin'] },
+      { id: 'staff', label: 'Jadwal & Shift', icon: <i className="fi fi-rr-calendar-clock text-lg" />, roles: ['admin', 'dokter', 'perawat', 'apoteker', 'kasir', 'resepsionis'] },
       { id: 'activity-logs', label: 'Activity Logs', icon: <i className="fi fi-rr-time-past text-lg" />, roles: ['admin', 'resepsionis'] },
     ],
   },
   {
     title: 'Klinik',
     items: [
-      { id: 'appointments', label: 'Appointments', icon: <i className="fi fi-rr-calendar text-lg" />, roles: ['admin', 'dokter', 'perawat', 'pasien', 'resepsionis'] },
+      { id: 'appointments', label: 'Appointments', icon: <i className="fi fi-rr-calendar text-lg" />, roles: ['admin', 'perawat', 'pasien', 'resepsionis'] },
       { id: 'medical-records', label: 'Rekam Medis', icon: <i className="fi fi-rr-stethoscope text-lg" />, roles: ['admin', 'dokter', 'perawat'] },
       { id: 'prescriptions', label: 'Resep Obat', icon: <i className="fi fi-rr-document text-lg" />, roles: ['admin', 'dokter', 'apoteker'] },
-      { id: 'referrals', label: 'Rujukan', icon: <i className="fi fi-rr-share text-lg" />, roles: ['admin', 'dokter', 'perawat'] },
+      { id: 'referrals', label: 'Rujukan', icon: <i className="fi fi-rr-share text-lg" />, roles: ['admin', 'dokter', 'perawat', 'resepsionis'] },
     ],
   },
   {
     title: 'Farmasi & Keuangan',
     items: [
       { id: 'pharmacy', label: 'Stok Obat', icon: <i className="fi fi-rr-boxes text-lg" />, roles: ['admin', 'apoteker'] },
-      { id: 'billing', label: 'Billing', icon: <i className="fi fi-rr-receipt text-lg" />, roles: ['admin', 'kasir', 'resepsionis'] },
+      { id: 'billing', label: 'Billing', icon: <i className="fi fi-rr-receipt text-lg" />, roles: ['admin', 'kasir'] },
     ],
   },
   {
@@ -90,6 +90,29 @@ export function Sidebar({ currentPage, onNavigate, userRole, collapsed, onToggle
       items: section.items.filter(item => item.roles.includes(userRole?.toLowerCase() as Role)),
     }))
     .filter(section => section.items.length > 0);
+
+  const getItemLabel = (item: { id: string; label: string }) => {
+    const roleStr = userRole?.toLowerCase();
+    
+    if (item.id === 'appointments') {
+      if (roleStr === 'resepsionis') return 'Antrian Pasien';
+      if (['dokter', 'perawat', 'admin'].includes(roleStr)) return 'Antrean Pasien';
+    }
+    
+    if (item.id === 'referrals') {
+      if (roleStr === 'resepsionis') return 'Rujukan Periksa';
+    }
+    
+    if (item.id === 'prescriptions') {
+      if (roleStr === 'apoteker') return 'Antrian Obat';
+    }
+    
+    if (item.id === 'billing') {
+      if (roleStr === 'kasir') return 'Antrian Pembayaran';
+    }
+    
+    return item.label;
+  };
 
   const sidebarContent = (
     <div className="flex h-full flex-col">
@@ -159,7 +182,7 @@ export function Sidebar({ currentPage, onNavigate, userRole, collapsed, onToggle
                     title={collapsed ? item.label : undefined}
                   >
                     <span className={cn(currentPage === item.id && "text-emerald-400")}>{item.icon}</span>
-                    {!collapsed && <span className="truncate">{item.label}</span>}
+                    {!collapsed && <span className="truncate">{getItemLabel(item)}</span>}
                   </button>
                 ))}
               </div>

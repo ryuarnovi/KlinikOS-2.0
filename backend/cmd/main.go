@@ -6,6 +6,8 @@ import (
 	"github.com/ryuarno/klinikos/internal/config"
 	"github.com/ryuarno/klinikos/internal/db"
 	"github.com/ryuarno/klinikos/internal/handler/drug"
+	"github.com/ryuarno/klinikos/internal/handler/hris"
+	"github.com/ryuarno/klinikos/internal/handler/icd"
 	"github.com/ryuarno/klinikos/internal/handler/patient"
 	"github.com/ryuarno/klinikos/internal/handler/payment"
 	"github.com/ryuarno/klinikos/internal/handler/resepsionis"
@@ -44,6 +46,8 @@ func main() {
 	paymentHandler := &payment.PaymentHandler{DB: database, Logger: logger}
 	activityLogHandler := &resepsionis.ActivityLogHandler{DB: database}
 	referralHandler := &patient.ReferralHandler{DB: database, Logger: logger}
+	icdHandler := &icd.ICDHandler{DB: database}
+	hrisHandler := &hris.HRISHandler{DB: database}
 
 	// Run auto migrations
 	RunAutoMigrations(database, "migrations")
@@ -62,6 +66,7 @@ func main() {
 			protected.GET("/users/me", userHandler.GetMeHandler)
 			protected.PUT("/users/me", userHandler.UpdateMeHandler)
 			protected.POST("/users/me/upload", userHandler.UploadProfilePictureHandler)
+			protected.GET("/users/staff", userHandler.ListStaffHandler)
 
 			// ── Admin only ────────────────────────────────────────────
 			admin := protected.Group("")
@@ -135,6 +140,20 @@ func main() {
 			protected.GET("/activity-logs/:id", activityLogHandler.GetActivityLogHandler)
 			protected.POST("/activity-logs", activityLogHandler.CreateActivityLogHandler)
 			protected.DELETE("/activity-logs/:id", activityLogHandler.DeleteActivityLogHandler)
+
+			// ── ICD Reference ─────────────────────────────────────────
+			protected.GET("/icd/icd10", icdHandler.SearchICD10Handler)
+			protected.GET("/icd/icd9cm", icdHandler.SearchICD9CMHandler)
+
+			// ── HRIS (Scheduling & Shifts) ────────────────────────────
+			protected.GET("/hris/schedules", hrisHandler.ListSchedulesHandler)
+			protected.POST("/hris/schedules", hrisHandler.CreateScheduleHandler)
+			protected.PUT("/hris/schedules/:id", hrisHandler.UpdateScheduleHandler)
+			protected.DELETE("/hris/schedules/:id", hrisHandler.DeleteScheduleHandler)
+			protected.GET("/hris/shifts", hrisHandler.ListShiftsHandler)
+			protected.POST("/hris/shifts", hrisHandler.CreateShiftHandler)
+			protected.PUT("/hris/shifts/:id", hrisHandler.UpdateShiftHandler)
+			protected.DELETE("/hris/shifts/:id", hrisHandler.DeleteShiftHandler)
 		}
 	}
 

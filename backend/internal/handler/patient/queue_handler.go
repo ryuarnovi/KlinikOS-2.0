@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -37,20 +38,28 @@ func (h *QueueHandler) CreateQueueHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid queue_date format (YYYY-MM-DD)"})
 		return
 	}
-	var createdBy sql.NullInt64
+	var createdBy, doctorID, nurseID sql.NullInt64
 	if input.CreatedBy != nil {
 		createdBy.Int64 = int64(*input.CreatedBy)
 		createdBy.Valid = true
 	}
+	if input.DoctorID != nil {
+		doctorID.Int64 = int64(*input.DoctorID)
+		doctorID.Valid = true
+	}
+	if input.NurseID != nil {
+		nurseID.Int64 = int64(*input.NurseID)
+		nurseID.Valid = true
+	}
 
 	var id int
 	err = h.DB.QueryRow(
-		`INSERT INTO queues (patient_id, queue_number, queue_date, status, created_by, created_at)
-         VALUES ($1, $2, $3, 'waiting', $4, NOW()) RETURNING id`,
-		input.PatientID, input.QueueNumber, queueDate, createdBy,
+		`INSERT INTO queues (patient_id, queue_number, queue_date, status, created_by, doctor_id, nurse_id, created_at)
+         VALUES ($1, $2, $3, 'waiting', $4, $5, $6, NOW()) RETURNING id`,
+		input.PatientID, input.QueueNumber, queueDate, createdBy, doctorID, nurseID,
 	).Scan(&id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create queue"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create queue: " + err.Error()})
 		return
 	}
 
@@ -134,13 +143,13 @@ func (h *QueueHandler) GetQueueHandler(c *gin.Context) {
 	var userName sql.NullString
 
 	err := h.DB.QueryRow(
-		`SELECT q.id, q.patient_id, q.queue_number, q.queue_date, q.status, q.created_by, q.called_at, q.completed_at, q.created_at,
+		`SELECT q.id, q.patient_id, q.queue_number, q.queue_date, q.status, q.created_by, q.doctor_id, q.nurse_id, q.called_at, q.completed_at, q.created_at,
                 p.full_name, u.full_name
            FROM queues q
            LEFT JOIN patients p ON q.patient_id = p.id
            LEFT JOIN users u ON q.created_by = u.id
          WHERE q.id = $1`, id).
-		Scan(&q.ID, &q.PatientID, &q.QueueNumber, &q.QueueDate, &q.Status, &q.CreatedBy, &q.CalledAt, &q.CompletedAt, &q.CreatedAt,
+		Scan(&q.ID, &q.PatientID, &q.QueueNumber, &q.QueueDate, &q.Status, &q.CreatedBy, &q.DoctorID, &q.NurseID, &q.CalledAt, &q.CompletedAt, &q.CreatedAt,
 			&patientName, &userName)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Queue not found"})
@@ -166,16 +175,30 @@ func (h *QueueHandler) GetQueueHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": mpatient.ToQueueResponse(q)})
 }
 
-// List all queues (dengan relasi patient & user)
+// List all queues (dengan relasi patient & user + filtering)
 func (h *QueueHandler) ListQueuesHandler(c *gin.Context) {
-	rows, err := h.DB.Query(
-		`SELECT q.id, q.patient_id, q.queue_number, q.queue_date, q.status, q.created_by, q.called_at, q.completed_at, q.created_at,
+	userID := utils.GetUserIDFromContext(c)
+	role := strings.ToLower(utils.GetUserRoleFromContext(c))
+
+	query := `SELECT q.id, q.patient_id, q.queue_number, q.queue_date, q.status, q.created_by, q.doctor_id, q.nurse_id, q.called_at, q.completed_at, q.created_at,
                 p.full_name, u.full_name
            FROM queues q
            LEFT JOIN patients p ON q.patient_id = p.id
-           LEFT JOIN users u ON q.created_by = u.id`)
+           LEFT JOIN users u ON q.created_by = u.id
+           WHERE 1=1`
+	
+	args := []interface{}{}
+	if role == "dokter" {
+		query += " AND q.doctor_id = $1"
+		args = append(args, userID)
+	} else if role == "perawat" {
+		query += " AND q.nurse_id = $1"
+		args = append(args, userID)
+	}
+
+	rows, err := h.DB.Query(query, args...)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get queues"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get queues: " + err.Error()})
 		return
 	}
 	defer rows.Close()
@@ -184,7 +207,7 @@ func (h *QueueHandler) ListQueuesHandler(c *gin.Context) {
 		var q mpatient.Queue
 		var patientName sql.NullString
 		var userName sql.NullString
-		if err := rows.Scan(&q.ID, &q.PatientID, &q.QueueNumber, &q.QueueDate, &q.Status, &q.CreatedBy, &q.CalledAt, &q.CompletedAt, &q.CreatedAt,
+		if err := rows.Scan(&q.ID, &q.PatientID, &q.QueueNumber, &q.QueueDate, &q.Status, &q.CreatedBy, &q.DoctorID, &q.NurseID, &q.CalledAt, &q.CompletedAt, &q.CreatedAt,
 			&patientName, &userName); err == nil {
 			q.Patient = &mpatient.PatientFK{
 				ID:       q.PatientID,

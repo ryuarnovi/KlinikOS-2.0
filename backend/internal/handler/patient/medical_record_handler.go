@@ -121,16 +121,32 @@ func (h *MedicalRecordHandler) UpdateMedicalRecordHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Medical record updated"})
 }
 
-// List all medical records (with patient, queue, doctor relasi)
+// List all medical records (with patient, queue, doctor relasi + profiling)
 func (h *MedicalRecordHandler) ListMedicalRecordsHandler(c *gin.Context) {
-	rows, err := h.DB.Query(`
+	userID := utils.GetUserIDFromContext(c)
+	role := strings.ToLower(utils.GetUserRoleFromContext(c))
+
+	query := `
         SELECT mr.id, mr.patient_id, mr.queue_id, mr.doctor_id, mr.visit_date, mr.subjective, mr.objective, mr.assessment, mr.plan, mr.vital_signs, mr.icd_code, mr.created_at, mr.updated_at,
                p.full_name, q.queue_number, q.queue_date, q.status, u.full_name
           FROM medical_records mr
           LEFT JOIN patients p ON mr.patient_id = p.id
           LEFT JOIN queues q ON mr.queue_id = q.id
           LEFT JOIN users u ON mr.doctor_id = u.id
-        ORDER BY mr.visit_date DESC`)
+          WHERE 1=1`
+	
+	args := []interface{}{}
+	if role == "dokter" {
+		query += " AND mr.doctor_id = $1"
+		args = append(args, userID)
+	} else if role == "perawat" {
+		query += " AND q.nurse_id = $1"
+		args = append(args, userID)
+	}
+
+	query += " ORDER BY mr.visit_date DESC"
+
+	rows, err := h.DB.Query(query, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch medical records"})
 		return

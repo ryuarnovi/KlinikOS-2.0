@@ -16,6 +16,8 @@ type Queue struct {
 	QueueDate   time.Time  `json:"queue_date" db:"queue_date"`
 	Status      string     `json:"status" db:"status"`
 	CreatedBy   *int       `json:"created_by,omitempty" db:"created_by"`
+	DoctorID    *int       `json:"doctor_id,omitempty" db:"doctor_id"`
+	NurseID     *int       `json:"nurse_id,omitempty" db:"nurse_id"`
 	CalledAt    *time.Time `json:"called_at,omitempty" db:"called_at"`
 	CompletedAt *time.Time `json:"completed_at,omitempty" db:"completed_at"`
 	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
@@ -30,6 +32,8 @@ type CreateQueueInput struct {
 	QueueNumber string `json:"queue_number"`
 	QueueDate   string `json:"queue_date"` // format: "2006-01-02"
 	CreatedBy   *int   `json:"created_by"`
+	DoctorID    *int   `json:"doctor_id"`
+	NurseID     *int   `json:"nurse_id"`
 }
 
 type UpdateQueueInput struct {
@@ -47,6 +51,8 @@ type QueueResponse struct {
 	Status        string     `json:"status"`
 	CreatedBy     *int       `json:"created_by,omitempty"`
 	CreatedByName string     `json:"created_by_name,omitempty"`
+	DoctorID      *int       `json:"doctor_id,omitempty"`
+	NurseID       *int       `json:"nurse_id,omitempty"`
 	CalledAt      *time.Time `json:"called_at,omitempty"`
 	CompletedAt   *time.Time `json:"completed_at,omitempty"`
 	CreatedAt     time.Time  `json:"created_at"`
@@ -60,6 +66,8 @@ func ToQueueResponse(q Queue) QueueResponse {
 		QueueDate:   q.QueueDate,
 		Status:      q.Status,
 		CreatedBy:   q.CreatedBy,
+		DoctorID:    q.DoctorID,
+		NurseID:     q.NurseID,
 		CalledAt:    q.CalledAt,
 		CompletedAt: q.CompletedAt,
 		CreatedAt:   q.CreatedAt,

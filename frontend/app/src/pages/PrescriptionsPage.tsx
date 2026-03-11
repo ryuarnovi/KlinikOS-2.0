@@ -2,8 +2,10 @@
 import { useApi } from '@/hooks/useApi';
 import { prescriptionService } from '@/services/prescriptionService';
 import { StatusBadge } from '@/components/StatusBadge';
+import { useAuth } from '@/context/AuthContext';
 
 export function PrescriptionsPage() {
+  const { user } = useAuth();
   const { data: prescriptions, loading, error, refetch } = useApi(() => prescriptionService.getAll(), []);
 
   if (loading) {
@@ -41,7 +43,7 @@ export function PrescriptionsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Resep Obat</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{user?.role?.toLowerCase() === 'apoteker' ? 'Antrian Obat' : 'Resep Obat'}</h1>
           <p className="text-sm text-slate-500 mt-1">Resep yang dibuat Dokter untuk ditebus Apoteker</p>
         </div>
         <button onClick={refetch} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 shadow-sm">

@@ -6,6 +6,8 @@ export interface QueueItem {
   patient_name: string;
   queue_number: string;
   queue_date: string;
+  doctor_id?: number;
+  nurse_id?: number;
   status: 'waiting' | 'calling' | 'completed' | 'cancelled';
   created_at: string;
 }
@@ -20,7 +22,7 @@ export const queueService = {
     await api.put(`/queues/${id}`, { status });
   },
 
-  create: async (data: { patient_id: number; queue_date?: string; queue_number?: string }) => {
+  create: async (data: { patient_id: number; queue_date?: string; queue_number?: string; doctor_id?: number; nurse_id?: number }) => {
     const res = await api.post('/queues', data);
     return res.data;
   },

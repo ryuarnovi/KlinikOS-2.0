@@ -165,6 +165,26 @@ func (h *UserHandler) ListUsersHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": muser.ToUserResponses(users)})
 }
 
+// ListStaffHandler returns only staff (non-patient users)
+func (h *UserHandler) ListStaffHandler(c *gin.Context) {
+	rows, err := h.DB.Query(
+		`SELECT id, username, full_name, email, phone, nip, specialization, license_number, role, is_active, profile_picture_url, created_at, updated_at 
+		 FROM users WHERE role != 'pasien'`)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get staff"})
+		return
+	}
+	defer rows.Close()
+	var users []muser.User
+	for rows.Next() {
+		var u muser.User
+		if err := rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Email, &u.Phone, &u.NIP, &u.Specialization, &u.LicenseNumber, &u.Role, &u.IsActive, &u.ProfilePictureURL, &u.CreatedAt, &u.UpdatedAt); err == nil {
+			users = append(users, u)
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"data": muser.ToUserResponses(users)})
+}
+
 // GetMeHandler returns current logged in user info
 func (h *UserHandler) GetMeHandler(c *gin.Context) {
 	userID := utils.GetUserIDFromContext(c)

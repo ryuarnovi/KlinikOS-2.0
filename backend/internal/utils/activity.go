@@ -44,3 +44,14 @@ func GetUserIDFromContext(c *gin.Context) int {
 	}
 	return 0
 }
+// GetUserRoleFromContext retrieves user role from Gin context
+func GetUserRoleFromContext(c *gin.Context) string {
+	role, exists := c.Get("role")
+	if !exists {
+		return ""
+	}
+	if str, ok := role.(string); ok {
+		return str
+	}
+	return ""
+}

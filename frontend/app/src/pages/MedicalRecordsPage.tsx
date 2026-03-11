@@ -8,10 +8,14 @@ import { queueService } from '@/services/queueService';
 import { referralService } from '@/services/referralService';
 import { pharmacyService } from '@/services/pharmacyService';
 import { prescriptionService } from '@/services/prescriptionService';
+import { ICDSearch } from '@/components/ICDSearch';
+import { ICD10 } from '@/services/icdService';
 import { useState, useMemo } from 'react';
 
 export function MedicalRecordsPage() {
   const { user } = useAuth();
+  const isDoctor = user?.role?.toLowerCase() === 'dokter';
+  const isNurse = user?.role?.toLowerCase() === 'perawat';
   const { data: records, loading, error, refetch } = useApi(() => medicalRecordService.getAll(), []);
   const { data: patients } = useApi(() => patientService.getAll(), []);
   const { data: queues } = useApi(() => queueService.getAll(), []);
@@ -85,6 +89,10 @@ export function MedicalRecordsPage() {
         alert('Rekam medis berhasil diperbarui!');
       } else {
         await medicalRecordService.create(form);
+        if (form.queue_id) {
+          await queueService.update(form.queue_id, 'completed');
+        }
+        alert('Rekam medis berhasil disimpan dan antrean diselesaikan!');
       }
       setShowForm(false);
       setEditingId(null);
@@ -116,6 +124,19 @@ export function MedicalRecordsPage() {
       icd_code: rec.icd_code || '',
     });
     setShowForm(true);
+  };
+
+  const handleSelectICD = (item: ICD10) => {
+    const currentCodes = form.icd_code ? form.icd_code.split(',').map(c => c.trim()) : [];
+    if (!currentCodes.includes(item.code)) {
+      setForm({ ...form, icd_code: [...currentCodes, item.code].join(', ') });
+    }
+  };
+
+  const removeICD = (code: string) => {
+    if (!form.icd_code) return;
+    const currentCodes = form.icd_code.split(',').map(c => c.trim());
+    setForm({ ...form, icd_code: currentCodes.filter(c => c !== code).join(', ') });
   };
 
   const handleDelete = async (id: number) => {
@@ -164,6 +185,36 @@ export function MedicalRecordsPage() {
     setPrescriptionItems([...prescriptionItems, { drug_id: drugId, qty: 1, dosage: '', drug_name: drug.name }]);
   };
 
+  const myQueues = useMemo(() => {
+    return (queues || []).filter(q => q.doctor_id === user?.id && q.status !== 'completed');
+  }, [queues, user?.id]);
+
+  const handleStartExam = (q: any) => {
+    setEditingId(null);
+    setForm({
+      patient_id: q.patient_id,
+      queue_id: q.id,
+      doctor_id: user?.id || 0,
+      visit_date: new Date().toISOString().split('T')[0],
+      subjective: '',
+      objective: '',
+      assessment: '',
+      plan: '',
+      vital_signs: '',
+      icd_code: '',
+    });
+    setShowForm(true);
+  };
+
+  const handleCallPatient = async (id: number) => {
+    try {
+      await queueService.update(id, 'calling');
+      refetch();
+    } catch {
+      alert('Gagal memanggil pasien');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -181,14 +232,58 @@ export function MedicalRecordsPage() {
           <p className="text-sm text-slate-500 mt-1">{records?.length || 0} catatan — Data dari backend API</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={refetch} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50">
-            <i className="fi fi-rr-refresh text-[14px]" /> Refresh
+          <button onClick={refetch} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-all">
+            <i className="fi fi-rr-refresh text-[14px]" />
           </button>
-          <button onClick={() => { setEditingId(null); setForm({ patient_id: 0, queue_id: 0, doctor_id: user?.id || 0, visit_date: new Date().toISOString().split('T')[0], subjective: '', objective: '', assessment: '', plan: '', vital_signs: '', icd_code: '' }); setShowForm(true); }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 shadow-sm transition-all active:scale-95">
-             <i className="fi fi-rr-file-add text-base" /> Buat Rekam Medis
-           </button>
+          {isDoctor && (
+            <button onClick={() => { setEditingId(null); setForm({ patient_id: 0, queue_id: 0, doctor_id: user?.id || 0, visit_date: new Date().toISOString().split('T')[0], subjective: '', objective: '', assessment: '', plan: '', vital_signs: '', icd_code: '' }); setShowForm(true); }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 shadow-sm transition-all active:scale-95">
+               <i className="fi fi-rr-file-add text-base" /> Buat Rekam Medis
+             </button>
+          )}
         </div>
       </div>
+
+      {isDoctor && myQueues.length > 0 && (
+        <div className="rounded-2xl border border-blue-100 bg-blue-50/30 p-6 animate-in fade-in slide-in-from-top-4 duration-500">
+           <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                <i className="fi fi-rr-list-check" /> Antrean Pasien Saya
+              </h2>
+              <span className="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">{myQueues.length} Menunggu</span>
+           </div>
+           <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
+              {myQueues.map(q => (
+                <div key={q.id} className="min-w-[280px] rounded-xl border border-white bg-white/80 p-4 shadow-sm backdrop-blur-sm group hover:shadow-md transition-all border-l-4 border-l-blue-500">
+                   <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">No. Antrean</p>
+                        <h3 className="text-lg font-black text-slate-800 tracking-tight">#{q.queue_number}</h3>
+                      </div>
+                      <StatusBadge status={q.status} />
+                   </div>
+                   <div className="mt-3">
+                      <p className="text-sm font-bold text-slate-700 truncate">{q.patient_name}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">{new Date(q.queue_date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
+                   </div>
+                   <button 
+                    onClick={() => handleStartExam(q)}
+                    className="mt-4 w-full rounded-lg bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
+                   >
+                     <i className="fi fi-rr-stethoscope" /> Periksa Sekarang
+                   </button>
+                   {q.status === 'waiting' && (
+                     <button 
+                      onClick={() => handleCallPatient(q.id)}
+                      className="mt-2 w-full rounded-lg bg-blue-50 border border-blue-100 py-2 text-xs font-bold text-blue-600 hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
+                     >
+                       <i className="fi fi-rr-megaphone" /> Panggil Pasien
+                     </button>
+                   )}
+                </div>
+              ))}
+           </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm overflow-y-auto">
@@ -214,21 +309,36 @@ export function MedicalRecordsPage() {
             )}
 
             <form onSubmit={handleCreate} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Pasien</label>
-                  <select
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-1">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Visit Date</label>
+                  <input
+                    type="date"
                     required
-                    value={form.patient_id || ''}
-                    onChange={e => setForm({...form, patient_id: parseInt(e.target.value)})}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all appearance-none"
-                  >
-                    <option value="">-- Pilih Pasien --</option>
-                    {patients?.map(p => (
-                      <option key={p.id} value={p.id}>{p.full_name} ({p.nik})</option>
-                    ))}
-                  </select>
+                    value={form.visit_date}
+                    onChange={e => setForm({...form, visit_date: e.target.value})}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+                  />
                 </div>
+                <div className="md:col-span-2 flex gap-4">
+                  <div className="flex-1">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Pasien</label>
+                    <select
+                      required
+                      value={form.patient_id || ''}
+                      onChange={e => setForm({...form, patient_id: parseInt(e.target.value)})}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all appearance-none"
+                    >
+                      <option value="">-- Pilih Pasien --</option>
+                      {patients?.map(p => (
+                        <option key={p.id} value={p.id}>{p.full_name} ({p.nik})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Antrean (Opsional)</label>
                   <select
@@ -246,32 +356,29 @@ export function MedicalRecordsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Visit Date</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tanda Vital</label>
                   <input
-                    type="date"
-                    required
-                    value={form.visit_date}
-                    onChange={e => setForm({...form, visit_date: e.target.value})}
+                    type="text"
+                    placeholder="TD, Nadi, Suhu"
+                    value={form.vital_signs || ''}
+                    onChange={e => setForm({...form, vital_signs: e.target.value})}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tanda Vital / ICD</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="TD, Nadi, Suhu"
-                      value={form.vital_signs || ''}
-                      onChange={e => setForm({...form, vital_signs: e.target.value})}
-                      className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
-                    />
-                    <input
-                      type="text"
-                      placeholder="ICD-10"
-                      value={form.icd_code || ''}
-                      onChange={e => setForm({...form, icd_code: e.target.value})}
-                      className="w-24 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all uppercase"
-                    />
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Diagnosis (ICD-10)</label>
+                  <div className="space-y-2">
+                    <ICDSearch type="icd10" onSelect={(item) => handleSelectICD(item as ICD10)} placeholder="Ketik kode atau nama penyakit..." />
+                    <div className="flex flex-wrap gap-1.5">
+                      {form.icd_code?.split(',').filter(c => c.trim()).map(code => (
+                        <div key={code} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700 animate-in zoom-in duration-200">
+                          {code.trim()}
+                          <button type="button" onClick={() => removeICD(code.trim())} className="hover:text-red-500">
+                            <i className="fi fi-rr-cross-small text-[10px]" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
