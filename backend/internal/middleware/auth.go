@@ -116,6 +116,9 @@ func AuthMiddleware(secretKey string) gin.HandlerFunc {
 			if role, ok := claims["role"].(string); ok {
 				c.Set("role", role)
 			}
+			if userID, ok := claims["user_id"]; ok {
+				c.Set("userID", userID)
+			}
 		}
 		c.Next()
 	}

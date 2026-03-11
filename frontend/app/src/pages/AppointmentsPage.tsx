@@ -2,7 +2,7 @@
 import { useApi } from '@/hooks/useApi';
 import { queueService } from '@/services/queueService';
 import { StatusBadge } from '@/components/StatusBadge';
-import { CalendarPlus, Clock, User, Loader2, AlertCircle, RefreshCw, X, Search } from 'lucide-react';
+
 import { patientService } from '@/services/patientService';
 import { useState } from 'react';
 export function AppointmentsPage() {
@@ -43,6 +43,16 @@ export function AppointmentsPage() {
     }
   };
 
+  const handleDelete = async (id: number) => {
+    if (!confirm('Hapus antrean ini?')) return;
+    try {
+      await queueService.delete(id);
+      refetch();
+    } catch (err) {
+      alert('Gagal menghapus antrean');
+    }
+  };
+
   const grouped: Record<string, any[]> = {};
   (queues || []).forEach(q => {
     const date = q.queue_date.split('T')[0];
@@ -53,7 +63,7 @@ export function AppointmentsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+        <i className="fi fi-rr-spinner text-3xl animate-spin text-emerald-500" />
         <span className="ml-3 text-slate-500">Memuat antrean...</span>
       </div>
     );
@@ -62,11 +72,11 @@ export function AppointmentsPage() {
   if (error) {
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
-        <AlertCircle className="mx-auto h-12 w-12 text-red-400 mb-3" />
+        <i className="fi fi-rr-info mx-auto text-5xl text-red-400 mb-3" />
         <h3 className="text-lg font-semibold text-red-800">Gagal Memuat Antrean</h3>
         <p className="text-sm text-red-600 mt-1">{error}</p>
         <button onClick={refetch} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700">
-          <RefreshCw size={14} /> Coba Lagi
+          <i className="fi fi-rr-refresh text-[14px]" /> Coba Lagi
         </button>
       </div>
     );
@@ -81,10 +91,10 @@ export function AppointmentsPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={refetch} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50">
-            <RefreshCw size={14} /> Refresh
+            <i className="fi fi-rr-refresh text-[14px]" /> Refresh
           </button>
           <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition-colors shadow-sm">
-            <CalendarPlus size={16} /> Ambll Antrean
+            <i className="fi fi-rr-calendar-plus text-base" /> Ambll Antrean
           </button>
         </div>
       </div>
@@ -94,7 +104,7 @@ export function AppointmentsPage() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-slate-900">Ambil Antrean Baru</h2>
-              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600"><i className="fi fi-rr-cross text-xl" /></button>
             </div>
             {saveError && (
               <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{saveError}</div>
@@ -130,7 +140,7 @@ export function AppointmentsPage() {
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowForm(false)} className="flex-1 rounded-lg border border-slate-200 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">Batal</button>
                 <button type="submit" disabled={saving || !selectedPatientId} className="flex-1 rounded-lg bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition-all">
-                  {saving ? <Loader2 size={16} className="animate-spin" /> : <CalendarPlus size={16} />}
+                  {saving ? <i className="fi fi-rr-spinner animate-spin text-base" /> : <i className="fi fi-rr-calendar-plus text-base" />}
                   {saving ? 'Memproses...' : 'Ambil Nomor'}
                 </button>
               </div>
@@ -141,7 +151,7 @@ export function AppointmentsPage() {
 
       {(!queues || queues.length === 0) ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
-          <CalendarPlus size={48} className="mx-auto text-slate-300 mb-3" />
+          <i className="fi fi-rr-calendar-plus text-5xl mx-auto text-slate-300 mb-3" />
           <p className="text-sm text-slate-500">Belum ada antrean terdaftar.</p>
         </div>
       ) : (
@@ -162,7 +172,7 @@ export function AppointmentsPage() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <User size={14} className="text-slate-400" />
+                          <i className="fi fi-rr-user text-[14px] text-slate-400" />
                           <span className="font-medium text-slate-800">{q.patient_name}</span>
                         </div>
                         <p className="text-xs text-slate-500 mt-0.5">ID Pasien: #{q.patient_id}</p>
@@ -186,6 +196,12 @@ export function AppointmentsPage() {
                            Selesai
                          </button>
                        )}
+                       <button
+                         onClick={() => handleDelete(q.id)}
+                         className="rounded-lg bg-red-50 p-1.5 text-red-500 hover:bg-red-100 transition-colors"
+                       >
+                         <i className="fi fi-rr-trash text-sm" />
+                       </button>
                     </div>
                   </div>
                 </div>

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Activity, Eye, EyeOff, LogIn, UserPlus, AlertCircle } from 'lucide-react';
+
 import { API_URL } from '@/config/api';
 
 export function LoginPage() {
@@ -47,7 +47,7 @@ export function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-500 mb-4 shadow-lg shadow-emerald-500/30">
-            <Activity size={32} className="text-white" />
+            <i className="fi fi-rr-heart-rate text-3xl text-white" />
           </div>
           <h1 className="text-3xl font-bold text-white">Klinik ERP</h1>
           <p className="text-sm text-slate-400 mt-1">Enterprise Resource Planning System</p>
@@ -82,7 +82,7 @@ export function LoginPage() {
           {/* Error */}
           {error && (
             <div className="flex items-center gap-2 rounded-lg bg-red-500/20 border border-red-500/30 px-4 py-3 mb-4">
-              <AlertCircle size={16} className="text-red-400 flex-shrink-0" />
+              <i className="fi fi-rr-info text-base text-red-400 flex-shrink-0" />
               <span className="text-sm text-red-300">{error}</span>
             </div>
           )}
@@ -157,7 +157,7 @@ export function LoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPassword ? <i className="fi fi-rr-eye-crossed text-base" /> : <i className="fi fi-rr-eye text-base" />}
                 </button>
               </div>
             </div>
@@ -170,15 +170,15 @@ export function LoginPage() {
               {loading ? (
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
               ) : mode === 'login' ? (
-                <><LogIn size={16} /> Masuk</>
+                <><i className="fi fi-rr-sign-in-alt text-base" /> Masuk</>
               ) : (
-                <><UserPlus size={16} /> Daftar</>
+                <><i className="fi fi-rr-user-add text-base" /> Daftar</>
               )}
             </button>
           </form>
         </div>
 
-        {/* Demo Accounts */}
+        {/* Demo Accounts
         {mode === 'login' && (
           <div className="mt-6 rounded-xl bg-white/5 border border-white/10 p-4 backdrop-blur-sm">
             <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">Demo Accounts (Pass: root210605)</p>
@@ -194,7 +194,7 @@ export function LoginPage() {
               ))}
             </div>
           </div>
-        )}
+        )} */}
 
         {/* API Info */}
         <div className="mt-4 text-center">

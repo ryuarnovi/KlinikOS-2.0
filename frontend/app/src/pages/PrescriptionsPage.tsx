@@ -2,7 +2,6 @@
 import { useApi } from '@/hooks/useApi';
 import { prescriptionService } from '@/services/prescriptionService';
 import { StatusBadge } from '@/components/StatusBadge';
-import { FileText, CheckCircle, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 
 export function PrescriptionsPage() {
   const { data: prescriptions, loading, error, refetch } = useApi(() => prescriptionService.getAll(), []);
@@ -10,7 +9,7 @@ export function PrescriptionsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+        <i className="fi fi-rr-spinner animate-spin text-3xl text-emerald-500" />
         <span className="ml-3 text-slate-500">Memuat resep...</span>
       </div>
     );
@@ -19,11 +18,11 @@ export function PrescriptionsPage() {
   if (error) {
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
-        <AlertCircle className="mx-auto h-12 w-12 text-red-400 mb-3" />
+        <i className="fi fi-rr-info mx-auto text-5xl text-red-400 mb-3" />
         <h3 className="text-lg font-semibold text-red-800">Gagal Memuat Resep</h3>
         <p className="text-sm text-red-600 mt-1">{error}</p>
         <button onClick={refetch} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700">
-          <RefreshCw size={14} /> Coba Lagi
+          <i className="fi fi-rr-refresh text-sm" /> Coba Lagi
         </button>
       </div>
     );
@@ -46,13 +45,13 @@ export function PrescriptionsPage() {
           <p className="text-sm text-slate-500 mt-1">Resep yang dibuat Dokter untuk ditebus Apoteker</p>
         </div>
         <button onClick={refetch} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 shadow-sm">
-          <RefreshCw size={14} /> Refresh
+          <i className="fi fi-rr-refresh text-sm" /> Refresh
         </button>
       </div>
 
       {(!prescriptions || prescriptions.length === 0) ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
-          <FileText size={48} className="mx-auto text-slate-300 mb-3" />
+          <i className="fi fi-rr-document mx-auto text-5xl text-slate-300 mb-3" />
           <p className="text-sm text-slate-500">Belum ada resep terdaftar.</p>
         </div>
       ) : (
@@ -62,7 +61,7 @@ export function PrescriptionsPage() {
               <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100">
-                    <FileText size={20} className="text-violet-600" />
+                    <i className="fi fi-rr-document text-xl text-violet-600" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-slate-800">{rx.patient_name}</h3>
@@ -77,7 +76,7 @@ export function PrescriptionsPage() {
                       onClick={() => handleStatusUpdate(rx.id, 'processed')}
                       className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 transition-colors"
                     >
-                      <CheckCircle size={12} />
+                      <i className="fi fi-rr-check-circle text-xs" />
                       Siapkan
                     </button>
                   )}
@@ -86,7 +85,7 @@ export function PrescriptionsPage() {
                       onClick={() => handleStatusUpdate(rx.id, 'dispensed')}
                       className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors"
                     >
-                      <CheckCircle size={12} />
+                      <i className="fi fi-rr-check-circle text-xs" />
                       Serahkan
                     </button>
                   )}

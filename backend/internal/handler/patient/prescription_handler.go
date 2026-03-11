@@ -9,10 +9,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	mpatient "github.com/ryuarno/klinikos/internal/model/patient"
+	"github.com/ryuarno/klinikos/internal/utils"
 )
 
 type PrescriptionHandler struct {
-	DB *sql.DB
+	DB     *sql.DB
+	Logger *utils.ActivityLogger
 }
 
 // Handler untuk membuat resep baru
@@ -33,13 +35,19 @@ func (h *PrescriptionHandler) CreatePrescriptionHandler(c *gin.Context) {
 		return
 	}
 
+	var medRecID sql.NullInt64
+	if input.MedicalRecordID != nil {
+		medRecID.Int64 = int64(*input.MedicalRecordID)
+		medRecID.Valid = true
+	}
+
 	query := `INSERT INTO prescriptions 
         (prescription_code, medical_record_id, patient_id, doctor_id, notes, prescription_date, status)
         VALUES ($1, $2, $3, $4, $5, NOW(), 'pending') RETURNING id`
 	var prescriptionID int
 	err = tx.QueryRow(query,
 		input.PrescriptionCode,
-		input.MedicalRecordID,
+		medRecID,
 		input.PatientID,
 		input.DoctorID,
 		input.Notes,
@@ -65,6 +73,10 @@ func (h *PrescriptionHandler) CreatePrescriptionHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 		return
 	}
+
+	// Dynamic Activity Log
+	userID := utils.GetUserIDFromContext(c)
+	h.Logger.Log(c, userID, "CREATE", "prescriptions", prescriptionID, fmt.Sprintf("Membuat resep baru %s", input.PrescriptionCode))
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Prescription created", "data": prescriptionID})
 }
@@ -166,6 +178,11 @@ func (h *PrescriptionHandler) UpdatePrescriptionHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update prescription"})
 		return
 	}
+
+	// Dynamic Activity Log
+	userID := utils.GetUserIDFromContext(c)
+	h.Logger.Log(c, userID, "UPDATE", "prescriptions", 0, fmt.Sprintf("Memperbarui resep ID %s", id))
+
 	c.JSON(http.StatusOK, gin.H{"message": "Prescription updated"})
 }
 

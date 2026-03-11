@@ -36,7 +36,7 @@ export const referralService = {
     return res.data.data;
   },
 
-  update: async (id: number, data: Partial<CreateReferralRequest>): Promise<void> => {
+  update: async (id: number, data: Partial<CreateReferralRequest> & { status?: string }): Promise<void> => {
     await api.put(`/referrals/${id}`, data);
   },
 

@@ -13,12 +13,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/ryuarno/klinikos/internal/model/patient"
+	"github.com/ryuarno/klinikos/internal/utils"
 	"github.com/veritrans/go-midtrans"
 )
 
 // PaymentHandler is the DI struct for payment feature
 type PaymentHandler struct {
-	DB *sql.DB
+	DB     *sql.DB
+	Logger *utils.ActivityLogger
 }
 
 // Helper untuk join string dengan koma
@@ -61,6 +63,11 @@ func (h *PaymentHandler) CreatePaymentHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payment: " + err.Error()})
 		return
 	}
+
+	// Dynamic Activity Log
+	userID := utils.GetUserIDFromContext(c)
+	h.Logger.Log(c, userID, "CREATE", "payments", id, fmt.Sprintf("Membuat invoice baru %s", input.PaymentCode))
+
 	c.JSON(http.StatusCreated, gin.H{"message": "Payment created", "data": id})
 }
 
@@ -174,6 +181,11 @@ func (h *PaymentHandler) UpdatePaymentHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Payment not found"})
 		return
 	}
+
+	// Dynamic Activity Log
+	userID := utils.GetUserIDFromContext(c)
+	h.Logger.Log(c, userID, "UPDATE", "payments", 0, fmt.Sprintf("Memperbarui invoice/pembayaran ID %s", id))
+
 	c.JSON(http.StatusOK, gin.H{"message": "Payment updated"})
 }
 
@@ -194,6 +206,11 @@ func (h *PaymentHandler) DeletePaymentHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Payment not found"})
 		return
 	}
+
+	// Dynamic Activity Log
+	userID := utils.GetUserIDFromContext(c)
+	h.Logger.Log(c, userID, "DELETE", "payments", 0, fmt.Sprintf("Menghapus invoice ID %s", id))
+
 	c.JSON(http.StatusOK, gin.H{"message": "Payment deleted"})
 }
 

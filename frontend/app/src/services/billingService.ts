@@ -41,4 +41,8 @@ export const billingService = {
     const res = await api.post('/payment/midtrans', data);
     return res.data;
   },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/billing/${id}`);
+  }
 };

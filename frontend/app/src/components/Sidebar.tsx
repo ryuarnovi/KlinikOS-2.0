@@ -2,11 +2,6 @@
 import { useState } from 'react';
 import type { Role } from '@/types';
 import { cn } from '@/utils/cn';
-import {
-  LayoutDashboard, Users, UserCog, CalendarDays, Stethoscope,
-  Pill, FileText, Receipt, Database, Server, FolderTree,
-  ChevronLeft, ChevronRight, Shield, Activity, Menu, X, Share2
-} from 'lucide-react';
 
 interface SidebarProps {
   currentPage: string;
@@ -48,6 +43,7 @@ const navSections: NavSection[] = [
       { id: 'users', label: 'Users & Roles', icon: <i className="fi fi-rr-users-alt text-lg" />, roles: ['admin'] },
       { id: 'patients', label: 'Pasien', icon: <i className="fi fi-rr-user text-lg" />, roles: ['admin', 'dokter', 'perawat', 'kasir', 'resepsionis'] },
       { id: 'staff', label: 'Staff Profiles', icon: <i className="fi fi-rr-shield-check text-lg" />, roles: ['admin'] },
+      { id: 'activity-logs', label: 'Activity Logs', icon: <i className="fi fi-rr-time-past text-lg" />, roles: ['admin', 'resepsionis'] },
     ],
   },
   {
@@ -62,21 +58,32 @@ const navSections: NavSection[] = [
   {
     title: 'Farmasi & Keuangan',
     items: [
-      { id: 'pharmacy', label: 'Stok Obat', icon: <i className="fi fi-rr-tablets text-lg" />, roles: ['admin', 'apoteker'] },
+      { id: 'pharmacy', label: 'Stok Obat', icon: <i className="fi fi-rr-boxes text-lg" />, roles: ['admin', 'apoteker'] },
       { id: 'billing', label: 'Billing', icon: <i className="fi fi-rr-receipt text-lg" />, roles: ['admin', 'kasir', 'resepsionis'] },
     ],
   },
   {
-    title: 'Arsitektur',
+    title: 'Akun',
     items: [
-      { id: 'sql-migration', label: 'SQL Migration', icon: <i className="fi fi-rr-database text-lg" />, roles: ['admin', 'dokter', 'perawat', 'apoteker', 'kasir', 'pasien', 'resepsionis'] },
-      { id: 'architecture', label: 'Go Backend', icon: <i className="fi fi-rr-server text-lg" />, roles: ['admin', 'dokter', 'perawat', 'apoteker', 'kasir', 'pasien', 'resepsionis'] },
-      { id: 'docker', label: 'Docker Config', icon: <i className="fi fi-rr-box text-lg" />, roles: ['admin', 'dokter', 'perawat', 'apoteker', 'kasir', 'pasien', 'resepsionis'] },
+      { id: 'profile', label: 'Profil Saya', icon: <i className="fi fi-rr-settings-sliders text-lg" />, roles: ['admin', 'dokter', 'perawat', 'apoteker', 'kasir', 'resepsionis'] },
     ],
   },
 ];
 
 export function Sidebar({ currentPage, onNavigate, userRole, collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    'Utama': true,
+    'Manajemen': true,
+    'Klinik': true,
+    'Farmasi & Keuangan': true
+  });
+
+  const toggleSection = (title: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [title]: prev[title] === undefined ? false : !prev[title]
+    }));
+  };
   const filteredSections = navSections
     .map(section => ({
       ...section,
@@ -120,35 +127,45 @@ export function Sidebar({ currentPage, onNavigate, userRole, collapsed, onToggle
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6 scrollbar-thin">
-        {filteredSections.map(section => (
-          <div key={section.title}>
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4 scrollbar-thin">
+        {filteredSections.map(section => {
+          const isExpanded = expandedSections[section.title] !== false;
+          
+          return (
+          <div key={section.title} className="space-y-1">
             {!collapsed && (
-              <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                {section.title}
-              </p>
+              <button
+                onClick={() => toggleSection(section.title)}
+                className="w-full flex items-center justify-between px-3 py-1.5 mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
+                title={`Toggle ${section.title}`}
+              >
+                <span>{section.title}</span>
+                <i className={cn("fi text-[10px] transition-transform duration-200", isExpanded ? "fi-rr-angle-small-down" : "fi-rr-angle-small-right")} />
+              </button>
             )}
-            <div className="space-y-1">
-              {section.items.map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => { onNavigate(item.id); onMobileClose(); }}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                    collapsed && "justify-center px-2",
-                    currentPage === item.id
-                      ? "bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 text-emerald-400 shadow-sm"
-                      : "text-slate-400 hover:bg-slate-700/50 hover:text-slate-200"
-                  )}
-                  title={collapsed ? item.label : undefined}
-                >
-                  <span className={cn(currentPage === item.id && "text-emerald-400")}>{item.icon}</span>
-                  {!collapsed && <span className="truncate">{item.label}</span>}
-                </button>
-              ))}
-            </div>
+            {(isExpanded || collapsed) && (
+              <div className="space-y-1">
+                {section.items.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => { onNavigate(item.id); onMobileClose(); }}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                      collapsed && "justify-center px-2",
+                      currentPage === item.id
+                        ? "bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 text-emerald-400 shadow-sm"
+                        : "text-slate-400 hover:bg-slate-700/50 hover:text-slate-200"
+                    )}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <span className={cn(currentPage === item.id && "text-emerald-400")}>{item.icon}</span>
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        ))}
+        )})}
       </nav>
 
       {/* Collapse Toggle (Desktop) */}
@@ -157,7 +174,7 @@ export function Sidebar({ currentPage, onNavigate, userRole, collapsed, onToggle
           onClick={onToggle}
           className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
         >
-          {collapsed ? <ChevronRight size={18} /> : <><ChevronLeft size={18} /> <span>Collapse</span></>}
+          {collapsed ? <i className="fi fi-rr-angle-right text-lg" /> : <><i className="fi fi-rr-angle-left text-lg" /> <span>Collapse</span></>}
         </button>
       </div>
     </div>
@@ -179,7 +196,7 @@ export function Sidebar({ currentPage, onNavigate, userRole, collapsed, onToggle
           onClick={onMobileClose}
           className="absolute right-3 top-5 text-slate-400 hover:text-white"
         >
-          <X size={20} />
+          <i className="fi fi-rr-cross text-xl" />
         </button>
         {sidebarContent}
       </aside>
@@ -198,7 +215,7 @@ export function Sidebar({ currentPage, onNavigate, userRole, collapsed, onToggle
 export function MobileMenuButton({ onClick }: { onClick: () => void }) {
   return (
     <button onClick={onClick} className="lg:hidden p-2 text-slate-600 hover:text-slate-900">
-      <Menu size={24} />
+      <i className="fi fi-rr-menu-burger text-2xl" />
     </button>
   );
 }

@@ -14,7 +14,7 @@ type PrescriptionItemFK struct {
 type Prescription struct {
 	ID               int        `json:"id" db:"id"`
 	PrescriptionCode string     `json:"prescription_code" db:"prescription_code"`
-	MedicalRecordID  int        `json:"medical_record_id" db:"medical_record_id"`
+	MedicalRecordID  *int       `json:"medical_record_id" db:"medical_record_id"`
 	PatientID        int        `json:"patient_id" db:"patient_id"`
 	DoctorID         int        `json:"doctor_id" db:"doctor_id"`
 	PrescriptionDate time.Time  `json:"prescription_date" db:"prescription_date"`
@@ -39,7 +39,7 @@ type CreatePrescriptionItemInputItem struct {
 
 type CreatePrescriptionInput struct {
 	PrescriptionCode string                          `json:"prescription_code"`
-	MedicalRecordID  int                             `json:"medical_record_id" binding:"required"`
+	MedicalRecordID  *int                            `json:"medical_record_id"`
 	PatientID        int                             `json:"patient_id" binding:"required"`
 	DoctorID         int                             `json:"doctor_id" binding:"required"`
 	Notes            *string                         `json:"notes"`
@@ -57,7 +57,7 @@ type UpdatePrescriptionInput struct {
 type PrescriptionResponse struct {
 	ID               int                  `json:"id"`
 	PrescriptionCode string               `json:"prescription_code"`
-	MedicalRecordID  int                  `json:"medical_record_id"`
+	MedicalRecordID  *int                 `json:"medical_record_id"`
 	PatientID        int                  `json:"patient_id"`
 	PatientName      string               `json:"patient_name,omitempty"`
 	DoctorID         int                  `json:"doctor_id"`

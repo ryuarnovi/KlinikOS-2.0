@@ -1,6 +1,6 @@
 "use client";
 import { useState } from 'react';
-import { Copy, Check } from 'lucide-react';
+
 
 interface CodeBlockProps {
   code: string;
@@ -36,7 +36,7 @@ export function CodeBlock({ code, language, title, maxHeight = '500px' }: CodeBl
               onClick={handleCopy}
               className="flex items-center gap-1 rounded-md bg-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-600 transition-colors"
             >
-              {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+              {copied ? <i className="fi fi-rr-check text-[12px] text-green-400" /> : <i className="fi fi-rr-copy text-[12px]" />}
               {copied ? 'Copied!' : 'Copy'}
             </button>
           </div>

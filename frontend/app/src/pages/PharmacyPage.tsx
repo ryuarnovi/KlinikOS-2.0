@@ -1,7 +1,7 @@
 "use client";
 import { pharmacyService, CreatePharmacyItemRequest } from '@/services/pharmacyService';
 import { useApi } from '@/hooks/useApi';
-import { Package, Search, AlertTriangle, RefreshCw, Loader2, AlertCircle, Plus, Edit2, Trash2, X, Save } from 'lucide-react';
+
 import { useState } from 'react';
 import { cn } from '@/utils/cn';
 
@@ -86,7 +86,7 @@ export function PharmacyPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+        <i className="fi fi-rr-spinner text-3xl animate-spin text-emerald-500" />
         <span className="ml-3 text-slate-500">Memuat stok obat...</span>
       </div>
     );
@@ -101,16 +101,16 @@ export function PharmacyPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={refetch} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50">
-            <RefreshCw size={14} /> Refresh
+            <i className="fi fi-rr-refresh text-[14px]" /> Refresh
           </button>
           <button onClick={() => { setEditingId(null); setShowForm(true); }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 shadow-sm transition-all active:scale-95">
-            <Plus size={16} /> Tambah Obat
+            <i className="fi fi-rr-plus text-base" /> Tambah Obat
           </button>
         </div>
       </div>
 
       <div className="relative max-w-md">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <i className="fi fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input type="text" placeholder="Cari obat atau SKU..." value={search}
           onChange={e => setSearch(e.target.value)}
           className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-sm" />
@@ -118,7 +118,7 @@ export function PharmacyPage() {
 
       {filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
-          <Package size={48} className="mx-auto text-slate-300 mb-3" />
+          <i className="fi fi-rr-box-alt text-5xl mx-auto text-slate-300 mb-3" />
           <p className="text-sm text-slate-500">Belum ada stok obat terdaftar.</p>
         </div>
       ) : (
@@ -144,7 +144,7 @@ export function PharmacyPage() {
                     <tr key={item.id} className={cn("hover:bg-slate-50/50 transition-colors", isLow && "bg-red-50/50")}>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">
-                          {isLow && <AlertTriangle size={14} className="text-red-500 flex-shrink-0" />}
+                          {isLow && <i className="fi fi-rr-info text-[14px] text-red-500 flex-shrink-0" />}
                           <span className="font-medium text-slate-800">{item.name}</span>
                         </div>
                       </td>
@@ -166,10 +166,10 @@ export function PharmacyPage() {
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-center gap-2">
                           <button onClick={() => handleEdit(item)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                            <Edit2 size={14} />
+                            <i className="fi fi-rr-edit text-[14px]" />
                           </button>
                           <button onClick={() => handleDelete(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                            <Trash2 size={14} />
+                            <i className="fi fi-rr-trash text-[14px]" />
                           </button>
                         </div>
                       </td>
@@ -188,13 +188,13 @@ export function PharmacyPage() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-slate-900">{editingId ? 'Edit Data Obat' : 'Tambah Obat Baru'}</h2>
               <button onClick={() => setShowForm(false)} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
-                <X size={20} />
+                <i className="fi fi-rr-cross text-xl" />
               </button>
             </div>
 
             {saveError && (
               <div className="mb-6 rounded-xl bg-red-50 border border-red-200 p-4 flex items-center gap-3 text-sm text-red-700">
-                <AlertCircle size={18} className="flex-shrink-0" />
+                <i className="fi fi-rr-info text-lg flex-shrink-0" />
                 {saveError}
               </div>
             )}
@@ -253,7 +253,7 @@ export function PharmacyPage() {
                   Batal
                 </button>
                 <button type="submit" disabled={saving} className="flex-[2] rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition-all active:scale-95">
-                  {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                  {saving ? <i className="fi fi-rr-spinner text-lg animate-spin" /> : <i className="fi fi-rr-disk text-lg" />}
                   {saving ? 'Menyimpan...' : 'Simpan Data Obat'}
                 </button>
               </div>

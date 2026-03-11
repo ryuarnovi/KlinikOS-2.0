@@ -24,4 +24,8 @@ export const queueService = {
     const res = await api.post('/queues', data);
     return res.data;
   },
+
+  delete: async (id: number) => {
+    await api.delete(`/queues/${id}`);
+  }
 };

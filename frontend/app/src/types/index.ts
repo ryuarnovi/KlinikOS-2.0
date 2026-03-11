@@ -9,6 +9,9 @@ export interface User {
   role: Role;
   is_active: boolean;
   created_at: string;
+  nip?: string;
+  specialization?: string;
+  license_number?: string;
 }
 
 export interface Patient {
@@ -92,9 +95,12 @@ export interface BillingTransaction {
   medicine_cost: number;
   admin_fee: number;
   total: number;
+  paid_amount: number;
+  change_amount: number;
   payment_method: string;
-  status: 'unpaid' | 'paid' | 'cancelled';
+  status: 'unpaid' | 'paid' | 'cancelled' | 'cicil';
   created_at: string;
+  payment_date: string;
 }
 
 export interface ActivityLog {

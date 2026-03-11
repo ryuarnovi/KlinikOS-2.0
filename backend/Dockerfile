@@ -19,6 +19,7 @@ FROM golang:1.24-alpine
 WORKDIR /app
 
 COPY --from=builder /app/main .
+COPY --from=builder /app/migrations ./migrations
 
 EXPOSE 9090
 

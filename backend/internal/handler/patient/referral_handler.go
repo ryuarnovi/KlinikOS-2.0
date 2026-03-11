@@ -9,10 +9,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	mpatient "github.com/ryuarno/klinikos/internal/model/patient"
+	"github.com/ryuarno/klinikos/internal/utils"
 )
 
 type ReferralHandler struct {
-	DB *sql.DB
+	DB     *sql.DB
+	Logger *utils.ActivityLogger
 }
 
 // CreateReferralHandler creates a new patient referral
@@ -43,6 +45,10 @@ func (h *ReferralHandler) CreateReferralHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create referral: " + err.Error()})
 		return
 	}
+
+	// Dynamic Activity Log
+	userID := utils.GetUserIDFromContext(c)
+	h.Logger.Log(c, userID, "CREATE", "referrals", id, fmt.Sprintf("Membuat rujukan baru ke %s", input.ReferralTo))
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Referral created", "data": id})
 }

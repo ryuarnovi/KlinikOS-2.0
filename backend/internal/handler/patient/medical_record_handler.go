@@ -9,10 +9,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	mpatient "github.com/ryuarno/klinikos/internal/model/patient"
+	"github.com/ryuarno/klinikos/internal/utils"
 )
 
 type MedicalRecordHandler struct {
-	DB *sql.DB
+	DB     *sql.DB
+	Logger *utils.ActivityLogger
 }
 
 func (h *MedicalRecordHandler) CreateMedicalRecordHandler(c *gin.Context) {
@@ -53,6 +55,11 @@ func (h *MedicalRecordHandler) CreateMedicalRecordHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create medical record: " + err.Error()})
 		return
 	}
+
+	// Dynamic Activity Log
+	userID := utils.GetUserIDFromContext(c)
+	h.Logger.Log(c, userID, "CREATE", "medical_records", id, fmt.Sprintf("Membuat rekam medis baru untuk pasien ID %d", input.PatientID))
+
 	c.JSON(http.StatusCreated, gin.H{"message": "Medical record created", "data": id})
 }
 
@@ -106,6 +113,11 @@ func (h *MedicalRecordHandler) UpdateMedicalRecordHandler(c *gin.Context) {
 			return
 		}
 	}
+	
+	// Dynamic Activity Log
+	userID := utils.GetUserIDFromContext(c)
+	h.Logger.Log(c, userID, "UPDATE", "medical_records", 0, fmt.Sprintf("Memperbarui rekam medis ID %s", id))
+
 	c.JSON(http.StatusOK, gin.H{"message": "Medical record updated"})
 }
 
@@ -235,5 +247,10 @@ func (h *MedicalRecordHandler) DeleteMedicalRecordHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete medical record"})
 		return
 	}
+
+	// Dynamic Activity Log
+	userID := utils.GetUserIDFromContext(c)
+	h.Logger.Log(c, userID, "DELETE", "medical_records", 0, fmt.Sprintf("Menghapus rekam medis ID %s", id))
+
 	c.JSON(http.StatusOK, gin.H{"message": "Medical record deleted"})
 }

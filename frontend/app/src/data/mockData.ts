@@ -47,7 +47,7 @@ export const prescriptions: Prescription[] = [
 ];
 
 export const billingTransactions: BillingTransaction[] = [
-  { id: 1, patient_id: 1, patient_code: 'P001', patient_name: 'Rudi Hermawan', invoice_number: 'INV-2024-0001', doctor_fee: 150000, medicine_cost: 15000, admin_fee: 10000, total: 175000, payment_method: 'cash', status: 'paid', created_at: '2024-12-20' },
+  { id: 1, patient_id: 1, patient_code: 'P001', patient_name: 'Rudi Hermawan', invoice_number: 'INV-2024-0001', doctor_fee: 150000, medicine_cost: 15000, admin_fee: 10000, total: 175000, paid_amount: 175000, change_amount: 0, payment_method: 'cash', status: 'paid', created_at: '2024-12-20', payment_date: '2024-12-20' },
 ];
 
 export const dashboardStats = {

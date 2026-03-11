@@ -1,7 +1,7 @@
 "use client";
 import { patientService, type CreatePatientRequest } from '@/services/patientService';
 import { useApi } from '@/hooks/useApi';
-import { UserPlus, Search, RefreshCw, AlertCircle, Loader2, X } from 'lucide-react';
+
 import { useState } from 'react';
 
 export function PatientsPage() {
@@ -71,7 +71,7 @@ export function PatientsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+        <i className="fi fi-rr-spinner text-3xl animate-spin text-emerald-500" />
         <span className="ml-3 text-slate-500">Memuat data pasien...</span>
       </div>
     );
@@ -80,11 +80,11 @@ export function PatientsPage() {
   if (error) {
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
-        <AlertCircle className="mx-auto h-12 w-12 text-red-400 mb-3" />
+        <i className="fi fi-rr-info mx-auto text-5xl text-red-400 mb-3" />
         <h3 className="text-lg font-semibold text-red-800">Gagal Memuat Data</h3>
         <p className="text-sm text-red-600 mt-1">{error}</p>
         <button onClick={refetch} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700">
-          <RefreshCw size={14} /> Coba Lagi
+          <i className="fi fi-rr-refresh text-[14px]" /> Coba Lagi
         </button>
       </div>
     );
@@ -101,10 +101,10 @@ export function PatientsPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={refetch} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50">
-            <RefreshCw size={14} /> Refresh
+            <i className="fi fi-rr-refresh text-[14px]" /> Refresh
           </button>
           <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 shadow-sm">
-            <UserPlus size={16} /> Registrasi Pasien
+            <i className="fi fi-rr-user-add text-base" /> Registrasi Pasien
           </button>
         </div>
       </div>
@@ -115,7 +115,7 @@ export function PatientsPage() {
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-slate-900">{editingId ? 'Update Data Pasien' : 'Registrasi Pasien Baru'}</h2>
-              <button onClick={() => { setShowForm(false); setEditingId(null); }} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+              <button onClick={() => { setShowForm(false); setEditingId(null); }} className="text-slate-400 hover:text-slate-600"><i className="fi fi-rr-cross text-xl" /></button>
             </div>
             {saveError && (
               <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{saveError}</div>
@@ -184,7 +184,7 @@ export function PatientsPage() {
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowForm(false)} className="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50">Batal</button>
                 <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-emerald-600 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
+                  {saving ? <i className="fi fi-rr-spinner animate-spin text-[14px]" /> : <i className="fi fi-rr-user-add text-[14px]" />}
                   {saving ? 'Menyimpan...' : 'Simpan'}
                 </button>
               </div>
@@ -194,7 +194,7 @@ export function PatientsPage() {
       )}
 
       <div className="relative max-w-md">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <i className="fi fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input type="text" placeholder="Cari nama atau NIK..." value={search}
           onChange={e => setSearch(e.target.value)}
           className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
@@ -202,7 +202,7 @@ export function PatientsPage() {
 
       {filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
-          <UserPlus size={48} className="mx-auto text-slate-300 mb-3" />
+          <i className="fi fi-rr-user-add text-5xl mx-auto text-slate-300 mb-3" />
           <p className="text-sm text-slate-500">
             {search ? 'Tidak ada pasien yang cocok dengan pencarian' : 'Belum ada data pasien. Klik "Registrasi Pasien" untuk menambahkan.'}
           </p>

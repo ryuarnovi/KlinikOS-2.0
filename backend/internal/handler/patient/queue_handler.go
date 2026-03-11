@@ -9,10 +9,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	mpatient "github.com/ryuarno/klinikos/internal/model/patient"
+	"github.com/ryuarno/klinikos/internal/utils"
 )
 
 type QueueHandler struct {
-	DB *sql.DB
+	DB     *sql.DB
+	Logger *utils.ActivityLogger
 }
 
 // Create queue
@@ -35,16 +37,27 @@ func (h *QueueHandler) CreateQueueHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid queue_date format (YYYY-MM-DD)"})
 		return
 	}
+	var createdBy sql.NullInt64
+	if input.CreatedBy != nil {
+		createdBy.Int64 = int64(*input.CreatedBy)
+		createdBy.Valid = true
+	}
+
 	var id int
 	err = h.DB.QueryRow(
 		`INSERT INTO queues (patient_id, queue_number, queue_date, status, created_by, created_at)
          VALUES ($1, $2, $3, 'waiting', $4, NOW()) RETURNING id`,
-		input.PatientID, input.QueueNumber, queueDate, input.CreatedBy,
+		input.PatientID, input.QueueNumber, queueDate, createdBy,
 	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create queue"})
 		return
 	}
+
+	// Dynamic Activity Log
+	userID := utils.GetUserIDFromContext(c)
+	h.Logger.Log(c, userID, "CREATE", "queues", id, fmt.Sprintf("Menambahkan antrean baru #%s", input.QueueNumber))
+
 	c.JSON(http.StatusCreated, gin.H{"message": "Queue created", "data": id})
 }
 
@@ -85,6 +98,15 @@ func (h *QueueHandler) UpdateQueueHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update queue"})
 		return
 	}
+
+	// Dynamic Activity Log
+	userID := utils.GetUserIDFromContext(c)
+	statusInfo := ""
+	if input.Status != nil {
+		statusInfo = fmt.Sprintf(" ke status %s", *input.Status)
+	}
+	h.Logger.Log(c, userID, "UPDATE", "queues", 0, fmt.Sprintf("Memperbarui antrean ID %s%s", id, statusInfo))
+
 	c.JSON(http.StatusOK, gin.H{"message": "Queue updated"})
 }
 
@@ -96,6 +118,11 @@ func (h *QueueHandler) DeleteQueueHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete queue"})
 		return
 	}
+
+	// Dynamic Activity Log
+	userID := utils.GetUserIDFromContext(c)
+	h.Logger.Log(c, userID, "DELETE", "queues", 0, fmt.Sprintf("Menghapus antrean ID %s", id))
+
 	c.JSON(http.StatusOK, gin.H{"message": "Queue deleted"})
 }
 

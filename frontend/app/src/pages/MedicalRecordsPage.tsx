@@ -1,31 +1,29 @@
 "use client";
-import { medicalRecordService } from '@/services/medicalRecordService';
+import { medicalRecordService, CreateMedicalRecordRequest } from '@/services/medicalRecordService';
 import { useApi } from '@/hooks/useApi';
 import { StatusBadge } from '@/components/StatusBadge';
-import { FilePlus, ClipboardList, RefreshCw, AlertCircle, Loader2, X, Plus, Pill, Trash2, Save } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { pharmacyService } from '@/services/pharmacyService';
-import { prescriptionService } from '@/services/prescriptionService';
-import { referralService } from '@/services/referralService';
-import type { PharmacyItem } from '@/types';
+import { useAuth } from '@/context/AuthContext';
 import { patientService } from '@/services/patientService';
 import { queueService } from '@/services/queueService';
-import { useAuth } from '@/context/AuthContext';
-import { CreateMedicalRecordRequest } from '@/services/medicalRecordService';
-import { Share2 } from 'lucide-react';
+import { referralService } from '@/services/referralService';
+import { pharmacyService } from '@/services/pharmacyService';
+import { prescriptionService } from '@/services/prescriptionService';
+import { useState, useMemo } from 'react';
 
 export function MedicalRecordsPage() {
   const { user } = useAuth();
   const { data: records, loading, error, refetch } = useApi(() => medicalRecordService.getAll(), []);
   const { data: patients } = useApi(() => patientService.getAll(), []);
   const { data: queues } = useApi(() => queueService.getAll(), []);
+  const { data: drugs } = useApi(() => pharmacyService.getItems(), []);
   
   const [selected, setSelected] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
-   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
+  const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
   const [showReferralForm, setShowReferralForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const [referralForm, setReferralForm] = useState({
     referral_to: '',
@@ -33,6 +31,24 @@ export function MedicalRecordsPage() {
     diagnosis: '',
     notes: '',
   });
+
+  const [prescriptionItems, setPrescriptionItems] = useState<{ drug_id: number, qty: number, dosage: string, drug_name?: string }[]>([]);
+  const [prescriptionNotes, setPrescriptionNotes] = useState('');
+
+  const [form, setForm] = useState<CreateMedicalRecordRequest>({
+    patient_id: 0,
+    queue_id: 0,
+    doctor_id: user?.id || 0,
+    visit_date: new Date().toISOString().split('T')[0],
+    subjective: '',
+    objective: '',
+    assessment: '',
+    plan: '',
+    vital_signs: '',
+    icd_code: '',
+  });
+
+  const record = useMemo(() => (records || []).find(r => r.id === selected), [records, selected]);
 
   const handleCreateReferral = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,23 +71,6 @@ export function MedicalRecordsPage() {
     }
   };
 
-  const { data: drugs } = useApi(() => pharmacyService.getItems(), []);
-  const [prescriptionItems, setPrescriptionItems] = useState<{ drug_id: number, qty: number, dosage: string, drug_name?: string }[]>([]);
-  const [prescriptionNotes, setPrescriptionNotes] = useState('');
-
-  const [form, setForm] = useState<CreateMedicalRecordRequest>({
-    patient_id: 0,
-    queue_id: 0,
-    doctor_id: user?.id || 0,
-    visit_date: new Date().toISOString().split('T')[0],
-    subjective: '',
-    objective: '',
-    assessment: '',
-    plan: '',
-    vital_signs: '',
-    icd_code: '',
-  });
-
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.patient_id || !form.doctor_id) {
@@ -81,8 +80,14 @@ export function MedicalRecordsPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      await medicalRecordService.create(form);
+      if (editingId) {
+        await medicalRecordService.update(editingId, form);
+        alert('Rekam medis berhasil diperbarui!');
+      } else {
+        await medicalRecordService.create(form);
+      }
       setShowForm(false);
+      setEditingId(null);
       refetch();
       setForm({
         patient_id: 0, queue_id: 0, doctor_id: user?.id || 0,
@@ -93,6 +98,34 @@ export function MedicalRecordsPage() {
       setSaveError(err?.response?.data?.error || 'Gagal menyimpan rekam medis');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEdit = (rec: any) => {
+    setEditingId(rec.id);
+    setForm({
+      patient_id: rec.patient_id,
+      queue_id: rec.queue_id || 0,
+      doctor_id: rec.doctor_id,
+      visit_date: rec.visit_date ? new Date(rec.visit_date).toISOString().split('T')[0] : '',
+      subjective: rec.subjective || '',
+      objective: rec.objective || '',
+      assessment: rec.assessment || '',
+      plan: rec.plan || '',
+      vital_signs: rec.vital_signs || '',
+      icd_code: rec.icd_code || '',
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Hapus rekam medis ini?')) return;
+    try {
+      await medicalRecordService.delete(id);
+      setSelected(null);
+      refetch();
+    } catch (err) {
+      alert('Gagal menghapus rekam medis');
     }
   };
 
@@ -131,26 +164,11 @@ export function MedicalRecordsPage() {
     setPrescriptionItems([...prescriptionItems, { drug_id: drugId, qty: 1, dosage: '', drug_name: drug.name }]);
   };
 
-  const record = (records || []).find(r => r.id === selected);
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+        <i className="fi fi-rr-spinner text-3xl animate-spin text-emerald-500" />
         <span className="ml-3 text-slate-500">Memuat rekam medis...</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
-        <AlertCircle className="mx-auto h-12 w-12 text-red-400 mb-3" />
-        <h3 className="text-lg font-semibold text-red-800">Gagal Memuat Data</h3>
-        <p className="text-sm text-red-600 mt-1">{error}</p>
-        <button onClick={refetch} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700">
-          <RefreshCw size={14} /> Coba Lagi
-        </button>
       </div>
     );
   }
@@ -164,11 +182,11 @@ export function MedicalRecordsPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={refetch} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50">
-            <RefreshCw size={14} /> Refresh
+            <i className="fi fi-rr-refresh text-[14px]" /> Refresh
           </button>
-          <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 shadow-sm transition-all active:scale-95">
-            <FilePlus size={16} /> Buat Rekam Medis
-          </button>
+          <button onClick={() => { setEditingId(null); setForm({ patient_id: 0, queue_id: 0, doctor_id: user?.id || 0, visit_date: new Date().toISOString().split('T')[0], subjective: '', objective: '', assessment: '', plan: '', vital_signs: '', icd_code: '' }); setShowForm(true); }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 shadow-sm transition-all active:scale-95">
+             <i className="fi fi-rr-file-add text-base" /> Buat Rekam Medis
+           </button>
         </div>
       </div>
 
@@ -177,20 +195,20 @@ export function MedicalRecordsPage() {
           <div className="my-8 w-full max-w-2xl rounded-2xl bg-white p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold text-slate-900">Buat Rekam Medis (SOAP)</h2>
+                <h2 className="text-xl font-bold text-slate-900">{editingId ? 'Edit Rekam Medis' : 'Buat Rekam Medis (SOAP)'}</h2>
                 <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest font-bold">Standard Medical Documentation</p>
               </div>
               <button 
                 onClick={() => setShowForm(false)} 
                 className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
               >
-                <X size={20} />
+                <i className="fi fi-rr-cross text-xl" />
               </button>
             </div>
 
             {saveError && (
               <div className="mb-6 rounded-xl bg-red-50 border border-red-200 p-4 flex items-center gap-3 text-sm text-red-700">
-                <AlertCircle size={18} className="flex-shrink-0" />
+                <i className="fi fi-rr-info text-lg flex-shrink-0" />
                 {saveError}
               </div>
             )}
@@ -326,7 +344,7 @@ export function MedicalRecordsPage() {
                   disabled={saving || !form.patient_id} 
                   className="flex-[2] rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-3.5 text-sm font-bold text-white hover:from-emerald-600 hover:to-teal-700 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
                 >
-                  {saving ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+                  {saving ? <i className="fi fi-rr-spinner animate-spin text-lg" /> : <i className="fi fi-rr-plus text-lg" />}
                   {saving ? 'Menyimpan...' : 'Simpan Rekam Medis'}
                 </button>
               </div>
@@ -338,7 +356,7 @@ export function MedicalRecordsPage() {
       {(!records || records.length === 0) ? (
         <div className="flex items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-12">
           <div className="text-center">
-            <ClipboardList size={48} className="mx-auto text-slate-300 mb-3" />
+            <i className="fi fi-rr-clipboard-list-check text-5xl mx-auto text-slate-300 mb-3" />
             <p className="text-sm text-slate-500">Belum ada rekam medis. Hanya Dokter yang bisa membuat rekam medis baru.</p>
           </div>
         </div>
@@ -372,7 +390,15 @@ export function MedicalRecordsPage() {
                       <h3 className="text-lg font-bold text-slate-900">{record.patient_name}</h3>
                       <p className="text-sm text-slate-500">{record.doctor_name} • {record.visit_date ? new Date(record.visit_date).toLocaleDateString('id-ID') : '-'}</p>
                     </div>
-                    <StatusBadge status={record.status} />
+                    <div className="flex items-center gap-2">
+                       <StatusBadge status={record.status} />
+                       <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                         <i className="fi fi-rr-edit text-sm" />
+                       </button>
+                       <button onClick={() => handleDelete(record.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                         <i className="fi fi-rr-trash text-sm" />
+                       </button>
+                     </div>
                   </div>
                 </div>
                 <div className="p-6 space-y-5">
@@ -398,7 +424,7 @@ export function MedicalRecordsPage() {
                       }}
                       className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all active:scale-95"
                     >
-                      <Pill size={18} /> Buat Resep Obat
+                      <i className="fi fi-rr-medicine text-lg" /> Buat Resep Obat
                     </button>
                     <button 
                       onClick={() => {
@@ -411,7 +437,7 @@ export function MedicalRecordsPage() {
                       }}
                       className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all"
                     >
-                      <Share2 size={18} /> Rujuk Pasien
+                      <i className="fi fi-rr-share text-lg" /> Rujuk Pasien
                     </button>
                   </div>
                 </div>
@@ -419,7 +445,7 @@ export function MedicalRecordsPage() {
             ) : (
               <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-12">
                 <div className="text-center">
-                  <ClipboardList size={48} className="mx-auto text-slate-300 mb-3" />
+                  <i className="fi fi-rr-clipboard-list-check text-5xl mx-auto text-slate-300 mb-3" />
                   <p className="text-sm text-slate-500">Pilih rekam medis untuk melihat detail SOAP</p>
                 </div>
               </div>
@@ -439,7 +465,7 @@ export function MedicalRecordsPage() {
                 onClick={() => setShowPrescriptionForm(false)} 
                 className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
               >
-                <X size={24} />
+                <i className="fi fi-rr-cross text-2xl" />
               </button>
             </div>
 
@@ -448,7 +474,7 @@ export function MedicalRecordsPage() {
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Pilih Obat dari Inventori</label>
                   <div className="relative group">
-                    <Pill className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+                    <i className="fi fi-rr-medicine absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors text-lg" />
                     <select
                       onChange={e => addPrescriptionItem(parseInt(e.target.value))}
                       className="w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 py-4 text-sm focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all appearance-none cursor-pointer font-medium"
@@ -480,7 +506,7 @@ export function MedicalRecordsPage() {
                   {prescriptionItems.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-48 text-center px-8">
                       <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                        <Pill className="text-slate-300" size={24} />
+                        <i className="fi fi-rr-medicine text-slate-300 text-2xl" />
                       </div>
                       <p className="text-xs text-slate-400 font-medium">Belum ada obat yang dipilih. Silakan pilih dari menu di samping.</p>
                     </div>
@@ -494,7 +520,7 @@ export function MedicalRecordsPage() {
                               onClick={() => setPrescriptionItems(prescriptionItems.filter((_, i) => i !== idx))}
                               className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                             >
-                              <Trash2 size={16} />
+                              <i className="fi fi-rr-trash text-base" />
                             </button>
                           </div>
                           <div className="grid grid-cols-2 gap-3">
@@ -550,7 +576,7 @@ export function MedicalRecordsPage() {
                 disabled={saving || prescriptionItems.length === 0} 
                 className="flex-[2] rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 py-4 text-sm font-bold text-white hover:from-blue-700 hover:to-indigo-800 disabled:opacity-50 flex items-center justify-center gap-3 shadow-xl shadow-blue-500/25 transition-all active:scale-95 translate-y-0 hover:-translate-y-1"
               >
-                {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                {saving ? <i className="fi fi-rr-spinner animate-spin text-lg" /> : <i className="fi fi-rr-disk text-lg" />}
                 {saving ? 'Memproses Resep...' : 'Konfirmasi & Kirim ke Farmasi'}
               </button>
             </div>
@@ -569,7 +595,7 @@ export function MedicalRecordsPage() {
                 onClick={() => setShowReferralForm(false)} 
                 className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
               >
-                <X size={24} />
+                <i className="fi fi-rr-cross text-2xl" />
               </button>
             </div>
 
@@ -631,7 +657,7 @@ export function MedicalRecordsPage() {
                   disabled={saving} 
                   className="flex-[2] rounded-2xl bg-gradient-to-r from-red-500 to-rose-600 py-4 text-sm font-bold text-white hover:from-red-600 hover:to-rose-700 disabled:opacity-50 flex items-center justify-center gap-3 shadow-xl shadow-red-500/25 transition-all active:scale-95"
                 >
-                  {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                  {saving ? <i className="fi fi-rr-spinner animate-spin text-lg" /> : <i className="fi fi-rr-disk text-lg" />}
                   {saving ? 'Menyimpan...' : 'Simpan Rujukan'}
                 </button>
               </div>

@@ -5,7 +5,6 @@ import { medicalRecordService } from '@/services/medicalRecordService';
 import { prescriptionService } from '@/services/prescriptionService';
 import { useApi } from '@/hooks/useApi';
 import { StatusBadge } from '@/components/StatusBadge';
-import { Receipt, CreditCard, DollarSign, RefreshCw, Loader2, AlertCircle, Plus, X, Save, Trash2, Pill } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Script from 'next/script';
 
@@ -26,6 +25,11 @@ export function BillingPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [qrisBill, setQrisBill] = useState<any>(null);
+  const [bankBill, setBankBill] = useState<any>(null);
+  const [cryptoBill, setCryptoBill] = useState<any>(null);
+
+  // Untuk menyimpan bukti
+  const [proofFile, setProofFile] = useState<File | null>(null);
 
   const [form, setForm] = useState<CreateBillingRequest>({
     patient_id: 0,
@@ -44,11 +48,11 @@ export function BillingPage() {
 
   const formatCurrency = (n: number) => 'Rp ' + (n || 0).toLocaleString('id-ID');
 
-  const totalRevenue = (bills || []).filter(b => b.status === 'paid').reduce((s, b) => s + b.total, 0);
-  const totalPending = (bills || []).filter(b => b.status === 'unpaid').reduce((s, b) => s + b.total, 0);
+  const totalRevenue = (bills || []).reduce((s, b) => s + (b.paid_amount || 0), 0);
+  const totalPending = (bills || []).reduce((s, b) => s + (b.total - (b.paid_amount || 0)), 0);
 
   const payMethodLabel: Record<string, string> = {
-    cash: '💵 Cash', debit: '💳 Debit', credit: '💳 Credit', midtrans: '📲 Online (Midtrans)', transfer: '🏦 Bank Transfer', qris: '📱 QRIS',
+    cash: '💵 Cash', debit: '💳 Debit', credit: '💳 Credit', midtrans: '📲 Online (Midtrans)', transfer: '🏦 Bank Transfer', qris: '📱 QRIS', crypto: '🪙 Crypto (SOL/ETH)'
   };
 
   const calculateTotal = (f: CreateBillingRequest) => {
@@ -87,7 +91,7 @@ export function BillingPage() {
         gross_amount: bill.total,
         customer: {
           first_name: bill.patient_name || 'Customer',
-          email: 'customer@example.com' // Should ideally come from patient data
+          email: 'customer@example.com'
         }
       });
 
@@ -117,28 +121,88 @@ export function BillingPage() {
     }
   };
 
-  const handlePayBank = async (bill: any) => {
-    // Bank transfer - show virtual account info, then mark confirmed
-    const confirmed = confirm(
-      `Transfer ke:\nBank BCA\nNo. Rek: 1234567890\nA/N: Klinik ERP\nJumlah: ${formatCurrency(bill.total)}\n\nKlik OK jika sudah melakukan transfer.`
-    );
-    if (!confirmed) return;
-    setPaying(bill.id);
+  const handlePayBank = (bill: any) => {
+    setProofFile(null);
+    setBankBill(bill);
+  };
+
+  const confirmBankPayment = async () => {
+    if (!bankBill) return;
+    setPaying(bankBill.id);
     try {
-      await billingService.processPayment(bill.id, {
+      await billingService.processPayment(bankBill.id, {
         payment_method: 'transfer',
-        paid_amount: bill.total,
+        paid_amount: bankBill.total,
         status: 'paid'
       });
+      setBankBill(null);
+      setProofFile(null);
+      alert('Pembayaran Bank Transfer berhasil direkam!');
       refetch();
     } catch {
-      alert('Gagal memproses pembayaran');
+      alert('Gagal memproses pembayaran Bank Transfer');
+    } finally {
+      setPaying(null);
+    }
+  };
+
+  const handlePayCrypto = (bill: any) => {
+    setCryptoBill(bill);
+  };
+
+  const confirmCryptoPayment = async () => {
+    if (!cryptoBill) return;
+    setPaying(cryptoBill.id);
+    try {
+      const isEth = typeof (window as any).ethereum !== 'undefined';
+      const isSol = typeof (window as any).solana !== 'undefined' && (window as any).solana.isPhantom;
+
+      if (isEth) {
+         try {
+           const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+           // Estimasi 1 ETH = 40.000.000 IDR
+           const mockEthValue = Math.floor((cryptoBill.total / 40000000) * 1e18);
+           const txHash = await (window as any).ethereum.request({
+             method: 'eth_sendTransaction',
+             params: [{
+               from: accounts[0],
+               to: accounts[0], // Mock: kirim ke diri sendiri
+               value: '0x' + mockEthValue.toString(16),
+             }]
+           });
+           alert('Transaksi Ethereum berhasil! TxHash: ' + txHash);
+         } catch(e: any) {
+           throw new Error("Transaksi Ethereum Dibatalkan: " + e.message);
+         }
+      } else if (isSol) {
+         try {
+           await (window as any).solana.connect();
+           alert('Phantom terdeteksi, memproses simulasi transaksi Solana...');
+           await new Promise(r => setTimeout(r, 1500));
+         } catch(e: any) {
+           throw new Error("Transaksi Solana Dibatalkan: " + e.message);
+         }
+      } else {
+         alert('Wallet Blockchain (Metamask/Phantom) tidak terdeteksi. Melakukan simulasi pembayaran crypto otomatis.');
+         await new Promise(r => setTimeout(r, 1000));
+      }
+
+      await billingService.processPayment(cryptoBill.id, {
+        payment_method: 'crypto',
+        paid_amount: cryptoBill.total,
+        status: 'paid'
+      });
+      setCryptoBill(null);
+      refetch();
+    } catch (err: any) {
+      alert('Gagal memproses: ' + err.message);
     } finally {
       setPaying(null);
     }
   };
 
   const handlePayQris = (bill: any) => {
+    setProofFile(null);
     setQrisBill(bill);
   };
 
@@ -152,6 +216,8 @@ export function BillingPage() {
         status: 'paid'
       });
       setQrisBill(null);
+      setProofFile(null);
+      alert('Pembayaran QRIS berhasil direkam!');
       refetch();
     } catch {
       alert('Gagal memproses pembayaran QRIS');
@@ -161,7 +227,6 @@ export function BillingPage() {
   };
 
   const handlePayCash = async (bill: any) => {
-    if (!confirm('Konfirmasi pembayaran tunai?')) return;
     setPaying(bill.id);
     try {
       await billingService.processPayment(bill.id, {
@@ -177,10 +242,20 @@ export function BillingPage() {
     }
   };
 
+  const handleDelete = async (id: number) => {
+    if (!confirm('Hapus/Batalkan invoice ini?')) return;
+    try {
+      await billingService.delete(id);
+      refetch();
+    } catch (err) {
+      alert('Gagal menghapus invoice');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+        <i className="fi fi-rr-spinner animate-spin text-3xl text-emerald-500" />
         <span className="ml-3 text-slate-500">Memuat billing...</span>
       </div>
     );
@@ -199,11 +274,11 @@ export function BillingPage() {
           <p className="text-sm text-slate-500 mt-1">{bills?.length || 0} invoice terdaftar</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={refetch} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50">
-            <RefreshCw size={14} /> Refresh
+          <button onClick={refetch} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 shadow-sm">
+            <i className="fi fi-rr-refresh text-xs" /> Refresh
           </button>
           <button onClick={() => { setForm({...form, invoice_number: 'INV-'+Date.now()}); setShowForm(true); }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 shadow-sm transition-all active:scale-95">
-            <Plus size={16} /> Buat Invoice Baru
+            <i className="fi fi-rr-plus text-xs" /> Buat Invoice Baru
           </button>
         </div>
       </div>
@@ -225,7 +300,7 @@ export function BillingPage() {
 
       {(!bills || bills.length === 0) ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
-          <Receipt size={48} className="mx-auto text-slate-300 mb-3" />
+          <i className="fi fi-rr-receipt text-5xl mx-auto text-slate-300 mb-3" />
           <p className="text-sm text-slate-500">Belum ada transaksi billing.</p>
         </div>
       ) : (
@@ -262,22 +337,29 @@ export function BillingPage() {
                         if (pm === 'cash') return (
                           <button onClick={() => handlePayCash(bill)} disabled={isLoading}
                             className="mx-auto flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 shadow-sm transition-all active:scale-95">
-                            {isLoading ? <Loader2 size={12} className="animate-spin" /> : <DollarSign size={12} />}
+                            {isLoading ? <i className="fi fi-rr-spinner animate-spin" /> : <i className="fi fi-rr-money-bill-wave text-xs" />}
                             Bayar Tunai
                           </button>
                         );
                         if (pm === 'transfer') return (
                           <button onClick={() => handlePayBank(bill)} disabled={isLoading}
                             className="mx-auto flex items-center gap-1.5 rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-orange-700 disabled:opacity-50 shadow-sm transition-all active:scale-95">
-                            {isLoading ? <Loader2 size={12} className="animate-spin" /> : <i className="fi fi-rr-bank text-xs" />}
+                            {isLoading ? <i className="fi fi-rr-spinner animate-spin" /> : <i className="fi fi-rr-bank text-xs" />}
                             Transfer Bank
                           </button>
                         );
                         if (pm === 'qris') return (
                           <button onClick={() => handlePayQris(bill)} disabled={isLoading}
                             className="mx-auto flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-purple-700 disabled:opacity-50 shadow-sm transition-all active:scale-95">
-                            {isLoading ? <Loader2 size={12} className="animate-spin" /> : <i className="fi fi-rr-qrcode text-xs" />}
+                            {isLoading ? <i className="fi fi-rr-spinner animate-spin" /> : <i className="fi fi-rr-qrcode text-xs" />}
                             Bayar QRIS
+                          </button>
+                        );
+                        if (pm === 'crypto') return (
+                          <button onClick={() => handlePayCrypto(bill)} disabled={isLoading}
+                            className="mx-auto flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50 shadow-sm transition-all active:scale-95">
+                            {isLoading ? <i className="fi fi-rr-spinner animate-spin" /> : <i className="fi fi-brands-ethereum text-xs" />}
+                            Bayar Crypto
                           </button>
                         );
                         // midtrans or default - full options
@@ -285,17 +367,22 @@ export function BillingPage() {
                           <div className="flex justify-center gap-1.5 flex-wrap">
                             <button onClick={() => handlePayMidtrans(bill)} disabled={isLoading}
                               className="flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-all active:scale-95">
-                              {isLoading ? <Loader2 size={11} className="animate-spin" /> : <CreditCard size={11} />}
+                              {isLoading ? <i className="fi fi-rr-spinner animate-spin" /> : <i className="fi fi-rr-credit-card text-[11px]" />}
                               Online
                             </button>
                             <button onClick={() => handlePayCash(bill)} disabled={isLoading}
                               className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 shadow-sm transition-all active:scale-95">
-                              {isLoading ? <Loader2 size={11} className="animate-spin" /> : <DollarSign size={11} />}
+                              {isLoading ? <i className="fi fi-rr-spinner animate-spin" /> : <i className="fi fi-rr-money-bill-wave text-[11px]" />}
                               Tunai
                             </button>
                           </div>
                         );
                       })()}
+                    </td>
+                    <td className="px-5 py-3.5 text-center">
+                       <button onClick={() => handleDelete(bill.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus/Batalkan">
+                         <i className="fi fi-rr-trash text-sm" />
+                       </button>
                     </td>
                   </tr>
                 ))}
@@ -311,13 +398,13 @@ export function BillingPage() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-slate-900">Buat Invoice Baru</h2>
               <button onClick={() => setShowForm(false)} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
-                <X size={20} />
+                <i className="fi fi-rr-cross text-lg" />
               </button>
             </div>
 
             {saveError && (
               <div className="mb-6 rounded-xl bg-red-50 border border-red-200 p-4 flex items-center gap-3 text-sm text-red-700">
-                <AlertCircle size={18} className="flex-shrink-0" />
+                <i className="fi fi-rr-info text-lg flex-shrink-0" />
                 {saveError}
               </div>
             )}
@@ -343,7 +430,7 @@ export function BillingPage() {
                       if (rx) {
                         handleFormChange({ 
                           patient_id: rx.patient_id, 
-                          medicine_cost: (rx.items || []).length * 15000, // Mock calculation
+                          medicine_cost: (rx.items || []).length * 15000,
                           notes: `Invoice untuk Resep ${rx.prescription_code}`
                         });
                       }
@@ -367,6 +454,7 @@ export function BillingPage() {
                     <option value="midtrans">Midtrans (Online)</option>
                     <option value="qris">QRIS (Scan)</option>
                     <option value="transfer">Bank Transfer</option>
+                    <option value="crypto">Crypto (SOL/ETH)</option>
                     <option value="cash">Cash</option>
                   </select>
                 </div>
@@ -396,18 +484,19 @@ export function BillingPage() {
                   Batal
                 </button>
                 <button type="submit" disabled={saving || !form.patient_id} className="flex-[2] rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition-all active:scale-95">
-                  {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                  {saving ? <i className="fi fi-rr-spinner animate-spin text-lg" /> : <i className="fi fi-rr-disk text-lg" />}
                   {saving ? 'Menyimpan...' : 'Simpan & Kirim Invoice'}
                 </button>
               </div>
             </form>
           </div>
         </div>
-      )}\n
+      )}
+
       {/* QRIS Modal */}
       {qrisBill && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm shadow-2xl">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-8 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
             <div className="text-center mb-6">
               <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 mb-4">
                 <i className="fi fi-rr-qrcode text-purple-600 text-3xl" />
@@ -416,17 +505,15 @@ export function BillingPage() {
               <p className="text-sm text-slate-500 mt-1">{qrisBill.patient_name}</p>
             </div>
 
-            {/* QRIS Code Display */}
-            <div className="flex flex-col items-center mb-6">
+            <div className="flex flex-col items-center mb-4">
               <div className="bg-white p-4 rounded-2xl border-4 border-purple-600 shadow-lg shadow-purple-500/20 mb-4">
-                {/* QR Code using Google Charts API - generates real scannable QR */}
                 <img
-                  src={`https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(`KLINIKOS-QRIS-${qrisBill.invoice_number}-${qrisBill.total}`)}&choe=UTF-8`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`KLINIKOS-QRIS-${qrisBill.invoice_number}-${qrisBill.total}`)}`}
                   alt="QRIS Code"
                   className="w-48 h-48"
                 />
               </div>
-              <p className="text-xs text-slate-400 text-center mb-2">Scan QR Code di atas menggunakan aplikasi mobile banking atau e-wallet Anda</p>
+              <p className="text-xs text-slate-400 text-center mb-2">Scan QR Code di atas menggunakan aplikasi mobile banking/E-Wallet</p>
               <div className="w-full rounded-xl bg-purple-50 border border-purple-200 p-4 text-center">
                 <p className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">Total Pembayaran</p>
                 <p className="text-2xl font-black text-purple-700">{formatCurrency(qrisBill.total)}</p>
@@ -434,20 +521,133 @@ export function BillingPage() {
               </div>
             </div>
 
+            <div className="mb-6">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Upload Bukti Transfer</label>
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={e => setProofFile(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 transition-colors"
+              />
+            </div>
+
             <div className="flex gap-3">
               <button
                 onClick={() => setQrisBill(null)}
-                className="flex-1 rounded-2xl border border-slate-200 py-3.5 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
+                className="flex-1 rounded-2xl border border-slate-200 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
               >
                 Batal
               </button>
               <button
                 onClick={confirmQrisPayment}
-                disabled={paying === qrisBill.id}
-                className="flex-[2] rounded-2xl bg-gradient-to-r from-purple-600 to-violet-700 py-3.5 text-sm font-bold text-white hover:from-purple-700 hover:to-violet-800 disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-purple-500/25 transition-all active:scale-95"
+                disabled={paying === qrisBill.id || !proofFile}
+                className="flex-[2] rounded-2xl bg-gradient-to-r from-purple-600 to-violet-700 py-3 text-xs font-bold text-white hover:from-purple-700 hover:to-violet-800 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-purple-500/25 transition-all active:scale-95"
               >
-                {paying === qrisBill.id ? <Loader2 size={18} className="animate-spin" /> : <i className="fi fi-rr-check text-base" />}
-                {paying === qrisBill.id ? 'Memproses...' : 'Konfirmasi Pembayaran Diterima'}
+                {paying === qrisBill.id ? <i className="fi fi-rr-spinner animate-spin" /> : <i className="fi fi-rr-check" />}
+                {paying === qrisBill.id ? 'Memproses...' : 'Sudah Bayar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bank Transfer Modal */}
+      {bankBill && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm shadow-2xl">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-8 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="text-center mb-6">
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 mb-4">
+                <i className="fi fi-rr-bank text-orange-600 text-3xl" />
+              </div>
+              <h2 className="text-xl font-black text-slate-900">Transfer Bank</h2>
+              <p className="text-sm text-slate-500 mt-1">{bankBill.patient_name}</p>
+            </div>
+
+            <div className="w-full rounded-xl bg-slate-50 border border-slate-200 p-4 mb-4">
+              <p className="text-xs text-slate-500 mb-1">Transfer ke Rekening:</p>
+              <p className="font-bold text-slate-800">Bank BCA <span className="text-orange-600 ml-2">1234567890</span></p>
+              <p className="text-xs font-semibold text-slate-600 mt-1">A/N Klinik ERP</p>
+              
+              <div className="mt-4 pt-4 border-t border-slate-200 text-center">
+                <p className="text-xs font-bold text-orange-400 uppercase tracking-widest mb-1">Total Pembayaran</p>
+                <p className="text-2xl font-black text-orange-600">{formatCurrency(bankBill.total)}</p>
+                <p className="text-[10px] text-slate-400 mt-1">Invoice: {bankBill.invoice_number}</p>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Upload Bukti Transfer</label>
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={e => setProofFile(e.target.files?.[0] || null)}
+                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 transition-colors"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setBankBill(null)}
+                className="flex-1 rounded-2xl border border-slate-200 py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmBankPayment}
+                disabled={paying === bankBill.id || !proofFile}
+                className="flex-[2] rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 py-3 text-xs font-bold text-white hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25 transition-all active:scale-95"
+              >
+                {paying === bankBill.id ? <i className="fi fi-rr-spinner animate-spin" /> : <i className="fi fi-rr-check" />}
+                {paying === bankBill.id ? 'Memproses...' : 'Sudah Transfer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Crypto Modal */}
+      {cryptoBill && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm shadow-2xl">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-8 animate-in fade-in zoom-in duration-200">
+            <div className="text-center mb-6">
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100 mb-4">
+                <i className="fi fi-brands-ethereum text-indigo-600 text-3xl" />
+              </div>
+              <h2 className="text-xl font-black text-slate-900">Crypto Payment</h2>
+              <p className="text-sm text-slate-500 mt-1">{cryptoBill.patient_name}</p>
+            </div>
+
+            <div className="flex flex-col items-center mb-6">
+              <div className="bg-white p-4 rounded-2xl border-4 border-indigo-600 shadow-lg shadow-indigo-500/20 mb-4">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`solana:solana_address_of_klinikos?amount=0.5&label=KlinikOS&message=${cryptoBill.invoice_number}`)}`}
+                  alt="Crypto QR Code"
+                  className="w-48 h-48"
+                />
+              </div>
+              <p className="text-xs text-slate-400 text-center mb-4">Pastikan Anda memiliki ektensi Metamask / Phantom Wallet terinstall, atau scan QR</p>
+              <div className="w-full rounded-xl bg-indigo-50 border border-indigo-200 p-4 text-center">
+                <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-1">Total Estimasi</p>
+                <p className="text-2xl font-black text-indigo-700">~0.0015 ETH</p>
+                <p className="text-xs font-semibold text-slate-500 mt-1">(= {formatCurrency(cryptoBill.total)})</p>
+                <p className="text-[10px] text-slate-400 mt-1">Invoice: {cryptoBill.invoice_number}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setCryptoBill(null)}
+                className="flex-1 rounded-2xl border border-slate-200 py-3.5 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all active:scale-95"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmCryptoPayment}
+                disabled={paying === cryptoBill.id}
+                className="flex-[2] rounded-2xl bg-gradient-to-r from-indigo-500 to-blue-600 py-3.5 text-sm font-bold text-white hover:from-indigo-600 hover:to-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-indigo-500/25 transition-all active:scale-95"
+              >
+                {paying === cryptoBill.id ? <i className="fi fi-rr-spinner animate-spin" /> : <i className="fi fi-brands-ethereum" />}
+                {paying === cryptoBill.id ? 'Memproses...' : 'Connect & Pay'}
               </button>
             </div>
           </div>

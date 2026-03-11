@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"github.com/gin-gonic/gin"
 	"github.com/ryuarno/klinikos/internal/config"
 	"github.com/ryuarno/klinikos/internal/db"
@@ -10,6 +11,11 @@ import (
 	"github.com/ryuarno/klinikos/internal/handler/resepsionis"
 	"github.com/ryuarno/klinikos/internal/handler/user"
 	"github.com/ryuarno/klinikos/internal/middleware"
+	"github.com/ryuarno/klinikos/internal/utils"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 func main() {
@@ -21,17 +27,26 @@ func main() {
 	r.Use(middleware.CORSMiddleware())
 	r.Use(middleware.LoggerMiddleware())
 
+	// Serving uploads
+	r.Static("/api/uploads", "./uploads")
+
+	// Logger
+	logger := utils.NewActivityLogger(database)
+
 	// Inisialisasi handler
-	userHandler := &user.UserHandler{DB: database, JWTSecret: cfg.JWTSecret}
+	userHandler := &user.UserHandler{DB: database, JWTSecret: cfg.JWTSecret, Logger: logger}
 	patientHandler := &patient.PatientHandler{DB: database}
 	drugHandler := &drug.DrugHandler{DB: database}
-	prescriptionHandler := &patient.PrescriptionHandler{DB: database}
+	prescriptionHandler := &patient.PrescriptionHandler{DB: database, Logger: logger}
 	prescriptionItemHandler := &patient.PrescriptionItemHandler{DB: database}
-	queueHandler := &patient.QueueHandler{DB: database}
-	medicalRecordHandler := &patient.MedicalRecordHandler{DB: database}
-	paymentHandler := &payment.PaymentHandler{DB: database}
+	queueHandler := &patient.QueueHandler{DB: database, Logger: logger}
+	medicalRecordHandler := &patient.MedicalRecordHandler{DB: database, Logger: logger}
+	paymentHandler := &payment.PaymentHandler{DB: database, Logger: logger}
 	activityLogHandler := &resepsionis.ActivityLogHandler{DB: database}
-	referralHandler := &patient.ReferralHandler{DB: database}
+	referralHandler := &patient.ReferralHandler{DB: database, Logger: logger}
+
+	// Run auto migrations
+	RunAutoMigrations(database, "migrations")
 
 	api := r.Group("/api")
 	{
@@ -43,6 +58,11 @@ func main() {
 		protected := api.Group("")
 		protected.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 		{
+			// ── User Profile (Self) ───────────────────────────────────
+			protected.GET("/users/me", userHandler.GetMeHandler)
+			protected.PUT("/users/me", userHandler.UpdateMeHandler)
+			protected.POST("/users/me/upload", userHandler.UploadProfilePictureHandler)
+
 			// ── Admin only ────────────────────────────────────────────
 			admin := protected.Group("")
 			admin.Use(middleware.AdminOnly())
@@ -119,4 +139,35 @@ func main() {
 	}
 
 	r.Run(":" + cfg.Port)
+}
+
+func RunAutoMigrations(db *sql.DB, migrationsDir string) {
+	files, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		log.Printf("Warning: migrations directory not found: %v", err)
+		return
+	}
+	log.Printf("Starting auto-migrations from %s...", migrationsDir)
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ".sql") {
+			log.Printf("Checking migration: %s", file.Name())
+			sqlBytes, err := os.ReadFile(filepath.Join(migrationsDir, file.Name()))
+			if err != nil {
+				log.Printf("Warning: failed to read migration %s: %v", file.Name(), err)
+				continue
+			}
+			if _, err := db.Exec(string(sqlBytes)); err != nil {
+				log.Printf("Migration %s failed: %v", file.Name(), err)
+			} else {
+				log.Printf("Migration %s successfully applied", file.Name())
+			}
+		}
+	}
+
+	// Fallback to ensure users table has staff fields if migrations skipped
+	_, _ = db.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS nip VARCHAR(50)")
+	_, _ = db.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS specialization VARCHAR(100)")
+	_, _ = db.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS license_number VARCHAR(100)")
+	_, _ = db.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture_url TEXT")
+	log.Println("Internal schema check for users table completed.")
 }

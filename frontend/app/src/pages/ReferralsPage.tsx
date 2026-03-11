@@ -3,7 +3,9 @@ import { referralService, CreateReferralRequest } from '@/services/referralServi
 import { patientService } from '@/services/patientService';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
-import { Share2, Plus, RefreshCw, Loader2, AlertCircle, X, Save, Search, Calendar, MapPin, Trash2 } from 'lucide-react';
+import { queueService } from '@/services/queueService';
+import { prescriptionService } from '@/services/prescriptionService';
+
 import { useState } from 'react';
 import { cn } from '@/utils/cn';
 
@@ -26,10 +28,12 @@ export function ReferralsPage() {
     notes: '',
   });
 
-  const filtered = (referrals || []).filter(r => 
-    r.patient_name?.toLowerCase().includes(search.toLowerCase()) ||
-    r.referral_to.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = (referrals || []).filter(r => {
+    const pName = (r.patient_name || '').toLowerCase();
+    const rTo = (r.referral_to || '').toLowerCase();
+    const q = search.toLowerCase();
+    return pName.includes(q) || rTo.includes(q);
+  });
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,15 +57,49 @@ export function ReferralsPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Yakin ingin menghapus rujukan ini?')) return;
-    await referralService.delete(id);
-    refetch();
+    try {
+      await referralService.delete(id);
+      refetch();
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Gagal menghapus rujukan');
+    }
+  };
+
+  const handleCreateQueue = async (patientId: number, referralId: number) => {
+    try {
+      await queueService.create({
+        patient_id: patientId,
+        queue_date: new Date().toISOString().split('T')[0],
+      });
+      await referralService.update(referralId, { status: 'processed' });
+      alert('Antrean berhasil dibuat!');
+      refetch();
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Gagal membuat antrean.');
+    }
+  };
+
+  const handleCreatePrescription = async (patientId: number, referralId: number) => {
+    try {
+      await prescriptionService.create({
+        patient_id: patientId,
+        doctor_id: user?.id || 1,
+        prescription_code: 'RX-' + Date.now(),
+        notes: 'Dari rujukan',
+        items: []
+      });
+      await referralService.update(referralId, { status: 'processed' });
+      alert('Draft resep berhasil dibuat!');
+      refetch();
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Gagal membuat resep.');
+    }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        <i className="fi fi-rr-spinner text-3xl animate-spin text-blue-500" />
         <span className="ml-3 text-slate-500">Memuat rujukan pasien...</span>
       </div>
     );
@@ -76,16 +114,16 @@ export function ReferralsPage() {
         </div>
         <div className="flex gap-2">
           <button onClick={refetch} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50">
-            <RefreshCw size={14} /> Refresh
+            <i className="fi fi-rr-refresh text-[14px]" /> Refresh
           </button>
           <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 shadow-sm transition-all active:scale-95">
-            <Share2 size={16} /> Buat Rujukan Baru
+            <i className="fi fi-rr-share text-base" /> Buat Rujukan Baru
           </button>
         </div>
       </div>
 
       <div className="relative max-w-md">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <i className="fi fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input type="text" placeholder="Cari pasien atau RS tujuan..." value={search}
           onChange={e => setSearch(e.target.value)}
           className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
@@ -93,7 +131,7 @@ export function ReferralsPage() {
 
       {filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
-          <Share2 size={48} className="mx-auto text-slate-300 mb-3" />
+          <i className="fi fi-rr-share mx-auto text-5xl text-slate-300 mb-3" />
           <p className="text-sm text-slate-500">Belum ada rujukan pasien terdaftar.</p>
         </div>
       ) : (
@@ -102,9 +140,9 @@ export function ReferralsPage() {
             <div key={r.id} className="group relative rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition-all border-l-4 border-l-blue-500">
               <button 
                 onClick={() => handleDelete(r.id)}
-                className="absolute top-4 right-4 p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                className="absolute top-4 right-4 p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all z-10"
               >
-                <Trash2 size={16} />
+                <i className="fi fi-rr-trash text-base" />
               </button>
               <div className="mb-4">
                 <h3 className="text-lg font-bold text-slate-900">{r.patient_name}</h3>
@@ -112,11 +150,11 @@ export function ReferralsPage() {
               </div>
               <div className="space-y-3">
                 <div className="flex items-center gap-3 text-slate-600">
-                  <MapPin size={16} className="text-blue-500" />
+                  <i className="fi fi-rr-marker text-base text-blue-500" />
                   <span className="text-sm font-semibold">{r.referral_to}</span>
                 </div>
                 <div className="flex items-center gap-3 text-slate-600">
-                  <Calendar size={16} className="text-blue-500" />
+                  <i className="fi fi-rr-calendar text-base text-blue-500" />
                   <span className="text-sm">{new Date(r.referral_date).toLocaleDateString('id-ID')}</span>
                 </div>
               </div>
@@ -124,12 +162,20 @@ export function ReferralsPage() {
                 <p className="text-xs font-bold text-slate-400 uppercase mb-1">Diagnosis</p>
                 <p className="text-sm text-slate-600 line-clamp-2">{r.diagnosis || 'Tidak ada diagnosis tertulis'}</p>
               </div>
-              <div className="mt-4 flex items-center justify-between text-xs text-slate-400 font-medium">
+              <div className="mt-4 flex items-center justify-between text-xs text-slate-400 font-medium pb-4 border-b border-slate-50">
                 <span>Dokter: {r.doctor_name}</span>
                 <span className={cn(
                   "px-2 py-0.5 rounded-full uppercase tracking-tighter",
                   r.status === 'active' ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"
                 )}>{r.status}</span>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <button onClick={() => handleCreateQueue(r.patient_id, r.id)} disabled={r.status === 'processed'} className="flex items-center justify-center gap-2 rounded-xl bg-slate-50 border border-slate-100 text-slate-600 px-3 py-2.5 text-xs font-bold hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                  <i className="fi fi-rr-calendar-plus text-[14px]" /> + Antrean
+                </button>
+                <button onClick={() => handleCreatePrescription(r.patient_id, r.id)} disabled={r.status === 'processed'} className="flex items-center justify-center gap-2 rounded-xl bg-slate-50 border border-slate-100 text-slate-600 px-3 py-2.5 text-xs font-bold hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                  <i className="fi fi-rr-medicine text-[14px]" /> + Resep
+                </button>
               </div>
             </div>
           ))}
@@ -142,13 +188,13 @@ export function ReferralsPage() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-slate-900">Buat Rujukan Pasien</h2>
               <button onClick={() => setShowForm(false)} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
-                <X size={20} />
+                <i className="fi fi-rr-cross text-xl" />
               </button>
             </div>
 
             {saveError && (
               <div className="mb-6 rounded-xl bg-red-50 border border-red-200 p-4 flex items-center gap-3 text-sm text-red-700">
-                <AlertCircle size={18} className="flex-shrink-0" />
+                <i className="fi fi-rr-info text-lg flex-shrink-0" />
                 {saveError}
               </div>
             )}
@@ -189,7 +235,7 @@ export function ReferralsPage() {
                   Batal
                 </button>
                 <button type="submit" disabled={saving || !form.patient_id} className="flex-[2] rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all active:scale-95">
-                  {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                  {saving ? <i className="fi fi-rr-spinner text-lg animate-spin" /> : <i className="fi fi-rr-disk text-lg" />}
                   {saving ? 'Memproses...' : 'Buat Rujukan'}
                 </button>
               </div>

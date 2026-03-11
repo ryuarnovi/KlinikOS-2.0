@@ -2,20 +2,21 @@
 import { cn } from '@/utils/cn';
 
 const statusStyles: Record<string, string> = {
-  scheduled: 'bg-blue-100 text-blue-700',
-  in_progress: 'bg-amber-100 text-amber-700',
-  completed: 'bg-green-100 text-green-700',
-  cancelled: 'bg-red-100 text-red-700',
-  draft: 'bg-slate-100 text-slate-600',
-  finalized: 'bg-emerald-100 text-emerald-700',
-  pending: 'bg-yellow-100 text-yellow-700',
-  prepared: 'bg-blue-100 text-blue-700',
-  dispensed: 'bg-green-100 text-green-700',
-  unpaid: 'bg-red-100 text-red-700',
-  paid: 'bg-green-100 text-green-700',
-  refunded: 'bg-orange-100 text-orange-700',
-  active: 'bg-green-100 text-green-700',
-  inactive: 'bg-slate-100 text-slate-600',
+  scheduled: 'border-blue-200 bg-blue-50 text-blue-700',
+  in_progress: 'border-amber-200 bg-amber-50 text-amber-700',
+  completed: 'border-green-200 bg-green-50 text-green-700',
+  cancelled: 'border-red-200 bg-red-50 text-red-700',
+  draft: 'border-slate-200 bg-slate-50 text-slate-700',
+  finalized: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  pending: 'border-yellow-200 bg-yellow-50 text-yellow-700',
+  prepared: 'border-blue-200 bg-blue-50 text-blue-700',
+  dispensed: 'border-green-200 bg-green-50 text-green-700',
+  unpaid: 'border-red-200 bg-red-50 text-red-700',
+  paid: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  cicil: 'border-cyan-200 bg-cyan-50 text-cyan-700',
+  refunded: 'border-orange-200 bg-orange-50 text-orange-700',
+  active: 'border-green-200 bg-green-50 text-green-700',
+  inactive: 'border-slate-200 bg-slate-50 text-slate-700',
 };
 
 const statusLabels: Record<string, string> = {
@@ -30,18 +31,21 @@ const statusLabels: Record<string, string> = {
   dispensed: 'Diberikan',
   unpaid: 'Belum Bayar',
   paid: 'Lunas',
+  cicil: 'Cicilan',
   refunded: 'Refund',
   active: 'Aktif',
   inactive: 'Nonaktif',
 };
 
 export function StatusBadge({ status }: { status: string }) {
+  const s = (status || '').toLowerCase();
   return (
     <span className={cn(
-      'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold',
-      statusStyles[status] || 'bg-slate-100 text-slate-600'
+      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-widest border',
+      statusStyles[s] || 'border-slate-200 bg-slate-50 text-slate-700'
     )}>
-      {statusLabels[status] || status}
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+      {statusLabels[s] || status}
     </span>
   );
 }
@@ -49,19 +53,19 @@ export function StatusBadge({ status }: { status: string }) {
 export function RoleBadge({ role }: { role: string }) {
   const r = role.toLowerCase();
   const roleStyles: Record<string, string> = {
-    admin: 'bg-red-100 text-red-700',
-    dokter: 'bg-blue-100 text-blue-700',
-    perawat: 'bg-green-100 text-green-700',
-    apoteker: 'bg-purple-100 text-purple-700',
-    kasir: 'bg-orange-100 text-orange-700',
-    pasien: 'bg-teal-100 text-teal-700',
-    resepsionis: 'bg-cyan-100 text-cyan-700',
+    admin: 'border-red-200 bg-red-50 text-red-700',
+    dokter: 'border-blue-200 bg-blue-50 text-blue-700',
+    perawat: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    apoteker: 'border-purple-200 bg-purple-50 text-purple-700',
+    kasir: 'border-orange-200 bg-orange-50 text-orange-700',
+    pasien: 'border-teal-200 bg-teal-50 text-teal-700',
+    resepsionis: 'border-cyan-200 bg-cyan-50 text-cyan-700',
   };
 
   return (
     <span className={cn(
-      'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase',
-      roleStyles[r] || 'bg-slate-100 text-slate-600'
+      'inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-widest border',
+      roleStyles[r] || 'border-slate-200 bg-slate-50 text-slate-700'
     )}>
       {role}
     </span>
