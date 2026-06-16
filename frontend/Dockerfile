@@ -30,4 +30,9 @@ EXPOSE 3000
 ENV NODE_ENV=production
 ENV NEXT_PUBLIC_API_URL=http://localhost:9090/api
 
+# using non-root user for security
+RUN addgroup -S frontend-group && adduser -S frontend-user -G frontend-group
+
+USER frontend-user
+
 CMD ["npm", "start"]
